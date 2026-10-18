@@ -58,6 +58,14 @@ html,body,#app,.app{min-height:100%}
 .login .login-form{position:absolute!important;z-index:5!important;right:7%!important;bottom:6%!important;width:clamp(300px,27vw,430px)!important;max-width:42vw!important}
 @media(max-width:700px){.login .login-form{right:3%!important;bottom:3%!important;width:55%!important;max-width:none!important}.login .login-form .panel{padding:12px!important}}
 @media(max-width:480px){.login .login-form{width:60%!important;right:2%!important;bottom:2%!important}}
+
+/* Imagem nova responsiva sem distorção */
+.login,.login .login-art{width:100%!important;min-height:100dvh!important;height:100dvh!important;max-height:none!important;padding:0!important;margin:0!important;border:0!important;border-radius:0!important;aspect-ratio:auto!important}
+.login .login-art{background-image:url('./fundo-login-vi.png?v=9')!important;background-size:cover!important;background-position:center center!important;background-repeat:no-repeat!important;background-color:#100b0e!important}
+.login .login-art:before,.login .login-art:after{display:none!important;content:none!important}
+.login .login-form{position:absolute!important;z-index:5!important;right:6%!important;bottom:6%!important;width:clamp(300px,28vw,430px)!important;max-width:45vw!important}
+@media(max-width:750px){.login .login-art{background-position:center top!important}.login .login-form{right:3%!important;bottom:3%!important;width:56%!important;max-width:none!important}}
+@media(max-width:480px){.login .login-form{right:2%!important;bottom:2%!important;width:60%!important}}
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:'nails'+c[1]+'.jpg',count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
