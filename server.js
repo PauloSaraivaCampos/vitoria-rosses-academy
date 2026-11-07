@@ -119,6 +119,21 @@ async function api(req,res,url){
   if(hours<=0)return fail(res,'Carga horária não configurada',409);
   return ok(res,{ok:true,name:user.name,hours,date:asObj(user.certificate_dates)[id]||new Date().toISOString().slice(0,10)});
  }
+ if(route==='/api/admin/students'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Acesso reservado à administração',403);
+  const x=await readBody(req);
+  const name=safeStr(x.name,120).trim(),email=safeStr(x.email,255).trim().toLowerCase(),password=x.password;
+  const plan=x.plan||'none';
+  if(name.length<3||!validEmail(email)||!validPassword(password))
+   return fail(res,'Informe nome completo, e-mail válido e senha inicial de 10 a 256 caracteres');
+  if(!['none','essencial','profissional','master'].includes(plan))
+   return fail(res,'Plano de acesso inválido');
+  const plans=plan==='none'?[]:[plan];
+  try{
+   const created=await db.query("INSERT INTO users(name,email,password_hash,role,plans) VALUES($1,$2,$3,'student',$4::jsonb) RETURNING id,name,email,role,plans",[name,email,hashPassword(password),JSON.stringify(plans)]);
+   return ok(res,{student:{name:created.rows[0].name,email:created.rows[0].email,role:'student',plans:created.rows[0].plans}},201);
+  }catch(e){if(e.code==='23505')return fail(res,'Este e-mail já está cadastrado',409);throw e}
+ }
  if(route==='/api/admin/access'&&method==='POST'){
   if(user.role!=='admin')return fail(res,'Acesso reservado à administração',403);
   const x=await readBody(req),email=safeStr(x.email,255).toLowerCase(),id=Number(x.course),lesson=x.lesson;
