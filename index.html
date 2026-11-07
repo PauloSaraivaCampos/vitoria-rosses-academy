@@ -292,12 +292,12 @@ function showLocked(){alert('Conteúdo bloqueado. Consulte os pacotes ou solicit
  }
  if(id){
   if(!/^[A-Za-z0-9_-]{11}$/.test(id))throw Error('O link do YouTube não é válido.');
-  return {kind:'iframe',src:'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=1&rel=0&playsinline=1',provider:'YouTube'};
+  return {kind:'iframe',src:'https://www.youtube-nocookie.com/embed/'+id+'?autoplay=0&rel=0&playsinline=1',provider:'YouTube'};
  }
  if(host==='vimeo.com'||host==='www.vimeo.com'||host==='player.vimeo.com'){
   const vid=parts.find(p=>/^\d+$/.test(p));
   if(!vid)throw Error('O link do Vimeo não é válido.');
-  let src='https://player.vimeo.com/video/'+vid+'?autoplay=1';
+  let src='https://player.vimeo.com/video/'+vid+'?autoplay=0';
   const h=u.searchParams.get('h')||(parts[0]==='video'?parts[2]:parts[1]);
   if(h&&/^[0-9a-f]{6,64}$/i.test(h))src+='&h='+encodeURIComponent(h);
   return {kind:'iframe',src,provider:'Vimeo'};
