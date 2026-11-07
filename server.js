@@ -1,6 +1,7 @@
 'use strict';
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {Pool}=require('pg');
+const videoStorage=require('./video-storage');
 const root=__dirname,PORT=Number(process.env.PORT)||3000;
 const db=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:false,max:8}):null;
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.pdf':'application/pdf','.ico':'image/x-icon'};
@@ -89,7 +90,7 @@ async function api(req,res,url){
    const course=({1:12,2:10,3:8,4:15,5:12,6:9,7:7,8:8})[id]||asArr(c.customCourses).find(y=>Number(y.id)===id)?.count||0;
    if(n>=course){await client.query('ROLLBACK');return fail(res,'Aula inexistente',404)}
    const video=asObj(c.videoLessons)[id+':'+n];
-   if(typeof video!=='string'||!video.startsWith('https://')){await client.query('ROLLBACK');return fail(res,'Esta aula ainda não possui vídeo cadastrado',409)}
+   if(typeof video!=='string'||(!video.startsWith('https://')&&!videoStorage.isPrivate(video))){await client.query('ROLLBACK');return fail(res,'Esta aula ainda não possui vídeo cadastrado',409)}
    const current=(await client.query('SELECT progress,certificate_dates FROM users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
    const progress={...asObj(current.progress),[id+':'+n]:true};
    const dates={...asObj(current.certificate_dates)};
@@ -104,8 +105,9 @@ async function api(req,res,url){
   if(!await isLessonUnlocked(user,id,n))return fail(res,'Acesso à aula não autorizado',403);
   const data=(await db.query('SELECT data FROM academy_data WHERE id=1')).rows[0]?.data;
   const link=asObj(data?.videoLessons)[id+':'+n];
+  if(videoStorage.isPrivate(link))return ok(res,{url:await videoStorage.signed(link),kind:'private',expiresIn:3600});
   if(typeof link!=='string'||!/^https:\/\/[^\s]+$/i.test(link))return fail(res,'Vídeo ainda não cadastrado',404);
-  return ok(res,{url:link});
+  return ok(res,{url:link,kind:'external'});
  }
  if(route==='/api/certificate/check'&&method==='GET'){
   const id=Number(url.searchParams.get('course'));
@@ -156,6 +158,17 @@ async function api(req,res,url){
   if(user.role!=='admin')return fail(res,'Acesso reservado à administração',403);
   const x=await readBody(req);if(!Number.isInteger(x.course)||!Number.isInteger(x.lesson)||x.course<1||x.lesson<0||x.lesson>30||typeof x.value!=='boolean')return fail(res,'Dados inválidos');
   await db.query("UPDATE academy_data SET data=jsonb_set(data,$1::text[],$2::jsonb,true) WHERE id=1",[['globalLocks',x.course+':'+x.lesson],JSON.stringify(x.value)]);return ok(res,{ok:true});
+ }
+ if(route==='/api/admin/video/upload'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Somente a administradora pode enviar vídeos',403);
+  try{
+   const result=await videoStorage.upload({req,db,course:Number(url.searchParams.get('course')),lesson:Number(url.searchParams.get('lesson'))});
+   return ok(res,result,201);
+  }catch(e){console.error('Falha no upload de vídeo:',e.message);if(!res.headersSent)return fail(res,e.status?e.message:'Não foi possível salvar o vídeo. Verifique o tamanho e a conexão.',e.status||500);return}
+ }
+ if(route==='/api/admin/video/remove'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Somente a administradora pode excluir vídeos',403);
+  const x=await readBody(req);return ok(res,await videoStorage.remove({db,course:Number(x.course),lesson:Number(x.lesson)}));
  }
  if(route==='/api/state'&&method==='GET')return ok(res,{state:await stateFor(user)});
  if(route==='/api/state'&&method==='POST'){const x=await readBody(req);await updateState(user,x);return ok(res,{ok:true})}
