@@ -27,7 +27,7 @@ function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.pla
 const asObj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
 const asArr=v=>Array.isArray(v)?v:[];
 const safeStr=(v,max=1000)=>typeof v==='string'?v.slice(0,max):'';
-async function stateFor(user){const [data,users]=await Promise.all([db.query('SELECT data FROM academy_data WHERE id=1'),user.role==='admin'?db.query('SELECT * FROM users ORDER BY id'):Promise.resolve({rows:[user]})]);const source={...blank(),...asObj(data.rows[0].data)};if(user.role!=='admin'){delete source.monthlyPayments;delete source.orders;source.announcements=asArr(source.announcements);source.videoLessons=Object.fromEntries(Object.entries(asObj(source.videoLessons)).filter(([k])=>{const id=Number(k.split(':')[0]);return (user.grants||{})[id]===true||asArr(user.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(id))}))}return {...source,users:users.rows.map(publicUser)}}
+async function stateFor(user){const [data,users]=await Promise.all([db.query('SELECT data FROM academy_data WHERE id=1'),user.role==='admin'?db.query('SELECT * FROM users ORDER BY id'):Promise.resolve({rows:[user]})]);const source={...blank(),...asObj(data.rows[0].data)};if(user.role!=='admin'){delete source.monthlyPayments;delete source.orders;source.announcements=asArr(source.announcements);source.videoLessons={}}return {...source,users:users.rows.map(publicUser)}}
 async function updateState(user,payload){
  const client=await db.connect();try{
   await client.query('BEGIN');
@@ -39,12 +39,6 @@ async function updateState(user,payload){
    for(const key of ['customCourses','announcements','monthlyPayments','orders']){if(payload[key]!==undefined)next[key]=asArr(payload[key]).slice(0,3000)}
    if(payload.certificateSignature!==undefined)next.certificateSignature=safeStr(payload.certificateSignature,200);
    await client.query('UPDATE academy_data SET data=$1 WHERE id=1',[JSON.stringify(next)]);
-   for(const item of asArr(payload.users)){
-    if(!validEmail(item?.email))continue;
-    const found=await client.query('SELECT id FROM users WHERE email=$1',[item.email.toLowerCase()]);
-    if(!found.rowCount)continue;
-    await client.query('UPDATE users SET plans=$1,grants=$2,progress=$3,notes=$4,certificate_dates=$5 WHERE id=$6',[JSON.stringify(asArr(item.plans)),JSON.stringify(asObj(item.grants)),JSON.stringify(asObj(item.progress)),JSON.stringify(asObj(item.notes)),JSON.stringify(asObj(item.certificateDates)),found.rows[0].id]);
-   }
   }else{
    const own=asArr(payload.users).find(x=>x?.email===user.email);
    if(!own)throw Error('Usuário não encontrado');
@@ -83,6 +77,53 @@ async function api(req,res,url){
  if(route==='/api/logout'&&method==='POST'){const u=await identify(req);if(u){const t=(req.headers.cookie||'').match(/vra_sid=([a-f0-9]{64})/);if(t)await db.query('DELETE FROM sessions WHERE token_hash=$1',[tokenHash(t[1])])}res.setHeader('Set-Cookie','vra_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');return ok(res,{ok:true})}
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
  if(route==='/api/session'&&method==='GET')return ok(res,{user:publicUser(user)});
+
+ const isCourseAllowed=(u,id)=>u.role==='admin'||asObj(u.grants)[id]===true||asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)));
+ const isLessonUnlocked=async(u,id,n)=>{if(!isCourseAllowed(u,id))return false;const result=await db.query('SELECT data FROM academy_data WHERE id=1');const locks=asObj(result.rows[0]?.data?.globalLocks);return locks[id+':'+n]!==true&&asObj(u.grants)[id+':'+n]!==false};
+ if(route==='/api/video'&&method==='GET'){
+  const id=Number(url.searchParams.get('course')),n=Number(url.searchParams.get('lesson'));
+  if(!Number.isInteger(id)||!Number.isInteger(n)||id<1||n<0||n>30)return fail(res,'Aula inválida');
+  if(!await isLessonUnlocked(user,id,n))return fail(res,'Acesso à aula não autorizado',403);
+  const data=(await db.query('SELECT data FROM academy_data WHERE id=1')).rows[0]?.data;
+  const link=asObj(data?.videoLessons)[id+':'+n];
+  if(typeof link!=='string'||!/^https:\/\/[^\s]+$/i.test(link))return fail(res,'Vídeo ainda não cadastrado',404);
+  return ok(res,{url:link});
+ }
+ if(route==='/api/certificate/check'&&method==='GET'){
+  const id=Number(url.searchParams.get('course'));
+  if(!Number.isInteger(id)||id<1)return fail(res,'Curso inválido');
+  if(!isCourseAllowed(user,id))return fail(res,'Curso não liberado',403);
+  const n=({1:12,2:10,3:8,4:15,5:12,6:9,7:7,8:8})[id]||0;
+  if(!n)return fail(res,'Curso sem certificado configurado',404);
+  for(let i=0;i<n;i++)if(asObj(user.progress)[id+':'+i]!==true)return fail(res,'Curso ainda não concluído',403);
+  const d=(await db.query('SELECT data FROM academy_data WHERE id=1')).rows[0]?.data;
+  const hours=Number(asObj(d?.certificateHours)[id]||0);
+  if(hours<=0)return fail(res,'Carga horária não configurada',409);
+  return ok(res,{ok:true,name:user.name,hours,date:asObj(user.certificate_dates)[id]||new Date().toISOString().slice(0,10)});
+ }
+ if(route==='/api/admin/access'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Acesso reservado à administração',403);
+  const x=await readBody(req),email=safeStr(x.email,255).toLowerCase(),id=Number(x.course),lesson=x.lesson;
+  if(!validEmail(email)||!Number.isInteger(id)||id<1||id>999)return fail(res,'Dados inválidos');
+  if(x.action==='grant'&&typeof x.value==='boolean'){
+    const result=await db.query("UPDATE users SET grants=jsonb_set(grants,$1::text[],$2::jsonb,true) WHERE email=$3 AND role='student' RETURNING id",[[String(id)],JSON.stringify(x.value),email]);
+    return result.rowCount?ok(res,{ok:true}):fail(res,'Aluna não encontrada',404);
+  }
+  if(x.action==='lesson'&&Number.isInteger(lesson)&&lesson>=0&&lesson<30&&typeof x.value==='boolean'){
+    const result=await db.query("UPDATE users SET grants=jsonb_set(grants,$1::text[],$2::jsonb,true) WHERE email=$3 AND role='student' RETURNING id",[[id+':'+lesson],JSON.stringify(x.value),email]);
+    return result.rowCount?ok(res,{ok:true}):fail(res,'Aluna não encontrada',404);
+  }
+  if(x.action==='plan'&&typeof x.value==='string'&&['essencial','profissional','master','none'].includes(x.value)){
+    const plans=x.value==='none'?[]:[x.value];const result=await db.query("UPDATE users SET plans=$1 WHERE email=$2 AND role='student' RETURNING id",[JSON.stringify(plans),email]);
+    return result.rowCount?ok(res,{ok:true}):fail(res,'Aluna não encontrada',404);
+  }
+  return fail(res,'Operação inválida');
+ }
+ if(route==='/api/admin/locks'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Acesso reservado à administração',403);
+  const x=await readBody(req);if(!Number.isInteger(x.course)||!Number.isInteger(x.lesson)||x.course<1||x.lesson<0||x.lesson>30||typeof x.value!=='boolean')return fail(res,'Dados inválidos');
+  await db.query("UPDATE academy_data SET data=jsonb_set(data,$1::text[],$2::jsonb,true) WHERE id=1",[['globalLocks',x.course+':'+x.lesson],JSON.stringify(x.value)]);return ok(res,{ok:true});
+ }
  if(route==='/api/state'&&method==='GET')return ok(res,{state:await stateFor(user)});
  if(route==='/api/state'&&method==='POST'){const x=await readBody(req);await updateState(user,x);return ok(res,{ok:true})}
  return fail(res,'Rota não encontrada',404)
