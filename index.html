@@ -164,13 +164,32 @@ const PLANS=[{id:'essencial',name:'Essencial',price:97,access:[1,3,7],months:6},
 const REMOTE_MODE=location.protocol.startsWith('http')&&!location.hostname.endsWith('github.io')&&!location.hostname.endsWith('githubusercontent.com');
 let remoteSetupRequired=false,remoteSaving=Promise.resolve();
 async function remoteAPI(route,data){const r=await fetch('/api/'+route,{method:data===undefined?'GET':'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:data===undefined?undefined:JSON.stringify(data)});let out;try{out=await r.json()}catch{throw Error('Resposta inválida do servidor')}if(!r.ok)throw Error(out.error||'Falha na operação');return out}
-async function remoteRefresh(){const out=await remoteAPI('state');state=out.state;state.users??=[];render()}
+async function remoteRefresh(){await remoteSaving.catch(()=>{});const out=await remoteAPI('state');state=out.state;state.users??=[];render()}
+let remoteLiveBusy=false;
+async function remoteLiveSync(){
+ if(!REMOTE_MODE||!session||remoteLiveBusy||document.visibilityState==='hidden'||modal||document.querySelector('#lesson-player.playing'))return;
+ if(document.activeElement?.matches?.('input,textarea,select,[contenteditable="true"]'))return;
+ remoteLiveBusy=true;
+ try{
+  await remoteSaving.catch(()=>{});
+  const out=await remoteAPI('state');
+  if(!session||!out.state)return;
+  const changed=JSON.stringify(out.state)!==JSON.stringify(state);
+  if(changed){state=out.state;state.users??=[];render()}
+ }catch(e){if(e.message.includes('Sessão expirada')){session=null;render()}else console.warn('Sincronização indisponível:',e.message)}
+ finally{remoteLiveBusy=false}
+}
+if(REMOTE_MODE){
+ setInterval(remoteLiveSync,10000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden)remoteLiveSync()});
+ window.addEventListener('focus',()=>remoteLiveSync());
+}
 async function remoteBoot(){session=null;state={users:[],globalLocks:{},customCourses:[],settings:{}};try{const result=await remoteAPI('session');session={email:result.user.email};await remoteRefresh();page=result.user.role==='admin'?'admin':'home'}catch(e){try{remoteSetupRequired=(await remoteAPI('setup-status')).setupRequired}catch{};}render()}
 function remoteSave(){const payload=JSON.parse(JSON.stringify(state));remoteSaving=remoteSaving.catch(()=>{}).then(()=>remoteAPI('state',payload)).catch(e=>{console.error(e);alert('Não foi possível salvar no banco de dados: '+e.message)});return remoteSaving}
 function remoteSetupForm(){modal={title:'Cadastrar administradora principal',body:'<p class="muted">Esta configuração só funciona antes do cadastro do primeiro administrador.</p><input id="setup-token" class="field" placeholder="Código inicial do Railway" type="password"><input id="setup-name" class="field" placeholder="Nome completo"><input id="setup-email" class="field" type="email" placeholder="E-mail"><input id="setup-pass" class="field" type="password" placeholder="Senha forte (mínimo 10 caracteres)"><button class="btn" onclick="remoteCreateAdmin()">Criar administradora</button>'};render()}
 async function remoteCreateAdmin(){try{const out=await remoteAPI('setup',{token:document.getElementById('setup-token').value,name:document.getElementById('setup-name').value.trim(),email:document.getElementById('setup-email').value.trim(),password:document.getElementById('setup-pass').value});session={email:out.user.email};modal=null;remoteSetupRequired=false;await remoteRefresh();go('admin')}catch(e){alert(e.message)}}
 const KEY='vra_demo_v1';let state=JSON.parse(localStorage.getItem(KEY)||'null')||{users:[{name:'Aluna Demonstração',email:'aluna@demo.com',password:'123456',role:'student',plans:['essencial'],grants:{},progress:{}}],orders:[],globalLocks:{},customCourses:[],settings:{}};let session=JSON.parse(sessionStorage.getItem('vra_session')||'null'),page='home',selectedCourse=1,selectedLesson=0,courseTab='aulas',adminTab='dashboard',query='',modal=null;
-const save=()=>REMOTE_MODE?remoteSave():localStorage.setItem(KEY,JSON.stringify(state));const current=()=>state.users.find(u=>u.email===session?.email);const courses=()=>[...COURSES,...state.customCourses];const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const isAdmin=()=>current()?.role==='admin';const hasCourse=(u,id)=>isAdmin()||u?.grants?.[id]===true||u?.plans?.some(p=>PLANS.find(z=>z.id===p)?.access.includes(Number(id)));const unlocked=(u,id,n)=>hasCourse(u,id)&&state.globalLocks[id+':'+n]!==true&&u?.grants?.[id+':'+n]!==false;const done=(id,n)=>!!current()?.progress?.[id+':'+n];const progress=id=>{const c=courses().find(x=>String(x.id)===String(id));const n=c?.count||LESSONS.length;return Math.round(100*Array.from({length:n},(_,i)=>done(id,i)).filter(Boolean).length/n)};const go=p=>{page=p;modal=null;render();window.scrollTo(0,0);if(REMOTE_MODE&&session)remoteRefresh().catch(e=>console.warn('Atualização dos dados indisponível',e.message))};
+const save=()=>REMOTE_MODE?remoteSave():localStorage.setItem(KEY,JSON.stringify(state));const current=()=>state.users.find(u=>u.email===session?.email);const courses=()=>[...COURSES,...state.customCourses];const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const isAdmin=()=>current()?.role==='admin';const hasCourse=(u,id)=>u?.role==='admin'||(u?.grants?.[id]!==false&&(u?.grants?.[id]===true||u?.plans?.some(p=>PLANS.find(z=>z.id===p)?.access.includes(Number(id)))));const unlocked=(u,id,n)=>hasCourse(u,id)&&state.globalLocks[id+':'+n]!==true&&u?.grants?.[id+':'+n]!==false;const done=(id,n)=>!!current()?.progress?.[id+':'+n];const progress=id=>{const c=courses().find(x=>String(x.id)===String(id));const n=c?.count||LESSONS.length;return Math.round(100*Array.from({length:n},(_,i)=>done(id,i)).filter(Boolean).length/n)};const go=p=>{page=p;modal=null;render();window.scrollTo(0,0);if(REMOTE_MODE&&session)remoteRefresh().catch(e=>console.warn('Atualização dos dados indisponível',e.message))};
 function render(){let root=document.getElementById('root');root.innerHTML=!session?login():`<div class="app">${header()}${isAdmin()&&page==='admin'?admin():page==='home'?home():page==='catalog'?catalog():page==='mine'?mine():page==='course'?course():page==='plans'?plans():page==='profile'?profile():page==='certificates'?certificatesPage():home()}<div class="foot">© Vitória Rosses Academy • Protótipo de testes • Pagamentos e acesso apenas demonstrativos</div></div>${modal?modalHTML():''}`;}
 function header(){return `<header class="top vr-top"><button class="vr-logo" onclick="go('home')" aria-label="Início"><img class="vr-header-logo-img" src="Logo%20dourada%20Vit%C3%B3ria%20Ross%C3%A9s%20Nail%20Designer.png?v=20261107" alt="Vitória Rossés Nail Designer" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="vr-logo-fallback" style="display:none">VR <small>VITÓRIA ROSSES · NAIL DESIGNER</small></span></button><nav class="nav vr-nav">${[['home','Início'],['mine','Meus Cursos']].map(([p,t])=>`<button class="${page===p?'active':''}" onclick="go('${p}')">${t}</button>`).join('')}<button onclick="showCertificates()">Certificados</button><button onclick="showSupport()">Suporte</button>${isAdmin()?'<button onclick="go(\'admin\')">Administração</button>':''}</nav><div class="right vr-actions"><button class="ghost vr-icon" title="Pesquisar cursos" aria-label="Pesquisar cursos" onclick="go('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></button><button class="ghost vr-icon" title="Notificações" aria-label="Notificações" onclick="showNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/></svg></button><button class="vr-profile" title="Meu perfil" aria-label="Meu perfil" onclick="go('profile')"><img src="vitoria.jpg" alt="Perfil"></button><button class="ghost vr-exit" onclick="logout()">Sair</button></div></header>`}
 async function downloadCertificate(id){
@@ -426,11 +445,16 @@ async function premiumUploadVideo(id,n){
  xhr.timeout=5*60*1000;
  xhr.send(data);
 }
-function premiumSaveVideo(id,n){
+async function premiumSaveVideo(id,n){
  const v=document.getElementById('premium-video-url')?.value.trim()||'';
  if(!v)return alert('Informe um link HTTPS. Para enviar um arquivo, use o botão Enviar vídeo.');
  if(!/^https:\/\/[^\s]+$/i.test(v))return alert('Informe um endereço HTTPS válido.');
  try{videoPlaybackInfo(v)}catch(e){return alert(e.message)}
+ if(REMOTE_MODE){
+  try{await remoteAPI('admin/video/link',{course:Number(id),lesson:Number(n),url:v});modal=null;await remoteRefresh();adminTab='videos';render()}
+  catch(e){alert('Não foi possível salvar o vídeo: '+e.message)}
+  return
+ }
  state.videoLessons??={};state.videoLessons[id+':'+n]=v;save();modal=null;render()
 }
 async function premiumRemoveVideo(id,n){
