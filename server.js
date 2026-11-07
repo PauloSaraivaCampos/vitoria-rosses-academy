@@ -99,6 +99,32 @@ async function api(req,res,url){
    await client.query('COMMIT');return ok(res,{ok:true,progress,certificateDates:dates});
   }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
  }
+ if(route==='/api/videos/catalog'&&method==='GET'){
+  const id=Number(url.searchParams.get('course'));
+  if(!Number.isInteger(id)||id<1||id>999)return fail(res,'Curso inválido');
+  const data=(await db.query('SELECT data FROM academy_data WHERE id=1')).rows[0]?.data||{};
+  const all=asObj(data.videoLessons),items=[];
+  for(let n=0;n<30;n++){
+   const value=all[id+':'+n];if(!value)continue;
+   if(!await isLessonUnlocked(user,id,n))continue;
+   if(videoStorage.isPrivate(value)){items.push({lesson:n,kind:'file',url:await videoStorage.signed(value)});continue}
+   if(typeof value==='string'&&/^https:\/\//i.test(value)){
+    let info={lesson:n,kind:'other'};
+    try{
+     const u=new URL(value),host=u.hostname.toLowerCase(),segments=u.pathname.split('/').filter(Boolean);
+     let yt='';
+     if(['youtu.be','www.youtu.be'].includes(host))yt=segments[0];
+     if(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host)){
+      yt=segments[0]==='watch'?u.searchParams.get('v'):['embed','shorts','live','v'].includes(segments[0])?segments[1]:'';
+     }
+     if(yt&&/^[A-Za-z0-9_-]{11}$/.test(yt))info={lesson:n,kind:'image',thumbnail:'https://i.ytimg.com/vi/'+yt+'/hqdefault.jpg'};
+     else if(/\.(mp4|webm|ogg)$/i.test(u.pathname))info={lesson:n,kind:'file',url:value};
+    }catch{}
+    items.push(info);
+   }
+  }
+  return ok(res,{course:id,items});
+ }
  if(route==='/api/video'&&method==='GET'){
   const id=Number(url.searchParams.get('course')),n=Number(url.searchParams.get('lesson'));
   if(!Number.isInteger(id)||!Number.isInteger(n)||id<1||n<0||n>30)return fail(res,'Aula inválida');
