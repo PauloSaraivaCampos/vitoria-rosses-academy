@@ -357,39 +357,40 @@ img,video,iframe{max-width:100%}
  .login .login-form{width:min(75%,500px)!important;margin:-24px auto 0!important}
 }
 
-/* Login mobile v3: foto integral, cartão integrado, sem rodapé e sem altura artificial */
-.login-mobile-footer{display:none!important}
+/* LOGIN RESPONSIVO — layout móvel contínuo, sem cartão gigante e sem vazio artificial */
 @media(max-width:950px){
- html:has(.login),body:has(.login){min-height:100%;background:#09070b!important}
- .login{display:block!important;width:100%!important;min-height:0!important;height:auto!important;overflow:visible!important;padding:0!important;margin:0!important;background:#09070b!important}
- .login .login-art{position:relative!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;justify-content:flex-start!important;gap:0!important;width:100%!important;max-width:100%!important;min-height:0!important;height:auto!important;max-height:none!important;aspect-ratio:auto!important;border:0!important;border-radius:0!important;overflow:visible!important;margin:0!important;padding:0 0 18px!important;background:#09070b!important}
- .login .login-original-image{display:block!important;position:relative!important;inset:auto!important;flex:none!important;width:100%!important;height:auto!important;max-width:100%!important;max-height:none!important;aspect-ratio:auto!important;object-fit:contain!important;object-position:center top!important;border:0!important;padding:0!important;margin:0!important}
- .login .login-form{position:relative!important;inset:auto!important;flex:none!important;display:block!important;width:min(calc(100% - 28px),470px)!important;max-width:470px!important;min-width:0!important;margin:-22px auto 0!important;padding:0!important;z-index:2!important}
- .login .login-form .panel{width:100%!important;max-width:100%!important;margin:0!important;padding:clamp(16px,3.8vw,23px)!important;border-radius:17px!important;border:1px solid #9a735d!important;background:linear-gradient(160deg,#201620f5 0%,#120e14f9 100%)!important;box-shadow:0 15px 35px #0009!important}
- .login .login-form .panel h2{margin:0 0 8px!important;font-size:clamp(25px,6vw,32px)!important;line-height:1.15!important}
- .login .login-form .panel>p{margin:0 0 15px!important;font-size:clamp(12px,3.1vw,15px)!important;line-height:1.4!important}
- .login .login-field{min-height:46px!important;margin-bottom:10px!important}
- .login .login-field input{min-height:44px!important;font-size:16px!important}
- .login .login-form .login-options{margin:10px 0!important}
- .login .login-form .btn{min-height:45px!important}
- .login .login-social{margin-top:10px!important}
- .login .login-provider-icons{gap:8px!important;margin-top:7px!important}
- .login .login-provider-icons button{height:45px!important}
- .login .login-form .panel>p.small{margin:12px 0 0!important}
+  html:has(.login), body:has(.login){background:#110d12!important;min-height:100%!important}
+  .login{display:block!important;position:relative!important;width:100%!important;height:auto!important;min-height:100dvh!important;margin:0!important;padding:0!important;overflow:hidden!important;background:linear-gradient(180deg,#1d1016 0%,#140e15 55%,#0e0b10 100%)!important}
+  .login .login-art{position:relative!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-items:center!important;gap:0!important;width:100%!important;max-width:none!important;height:auto!important;min-height:100dvh!important;max-height:none!important;aspect-ratio:auto!important;margin:0!important;padding:0 0 max(18px,env(safe-area-inset-bottom))!important;border:0!important;border-radius:0!important;overflow:hidden!important;background:radial-gradient(ellipse at 50% 48%,#30202a 0%,#170f18 58%,#0d0a10 100%)!important}
+  .login .login-art::before,.login .login-art::after{content:none!important;display:none!important}
+  .login .login-original-image{position:relative!important;inset:auto!important;display:block!important;flex:none!important;width:100%!important;max-width:100%!important;height:auto!important;max-height:none!important;aspect-ratio:auto!important;margin:0!important;padding:0!important;border:0!important;object-fit:contain!important;object-position:center top!important}
+  .login .login-brand,.login-mobile-footer{display:none!important}
+  .login .login-form{position:relative!important;inset:auto!important;z-index:2!important;display:block!important;flex:none!important;width:min(100%,480px)!important;max-width:480px!important;min-width:0!important;margin:-12px auto 0!important;padding:0 12px!important}
+  .login .login-form .panel{width:100%!important;max-width:none!important;margin:0!important;padding:clamp(16px,4.2vw,25px) clamp(16px,4.5vw,25px)!important;border:1px solid #8e654c!important;border-radius:16px!important;background:linear-gradient(155deg,#21151eea,#100d13f4)!important;box-shadow:0 14px 32px #0008!important}
+  .login .login-form .panel h2{font-size:clamp(26px,6vw,33px)!important;line-height:1.1!important;margin:0 0 7px!important}
+  .login .login-form .panel>p{font-size:13px!important;line-height:1.4!important;margin:0 0 14px!important}
+  .login .login-field{height:45px!important;min-height:45px!important;margin:7px 0 11px!important}
+  .login .login-field input{height:43px!important;min-height:43px!important;font-size:16px!important}
+  .login .login-options{display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:6px!important;margin:8px 0 13px!important}
+  .login .login-form .btn{min-height:46px!important;font-size:16px!important}
+  .login .login-social{margin:12px 0 0!important;font-size:11px!important}
+  .login .login-provider-icons{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:8px!important;margin:7px 0 0!important}
+  .login .login-provider-icons button{height:42px!important;min-height:42px!important}
+  .login .login-form .panel>p.small{margin:12px 0 0!important}
 }
 @media(max-width:600px){
- .login .login-art{padding-bottom:12px!important}
- .login .login-form{width:calc(100% - 24px)!important;margin:-20px auto 0!important}
- .login .login-form .panel{padding:17px!important}
- .login .login-provider-icons button{height:43px!important}
+  .login .login-art{min-height:0!important;height:auto!important;padding-bottom:20px!important}
+  .login .login-form{width:100%!important;max-width:none!important;padding:0 12px!important;margin:-12px auto 0!important}
+  .login .login-form .panel{padding:16px!important}
 }
-@media(max-width:360px){
- .login .login-form{width:calc(100% - 16px)!important;margin-top:-14px!important}
- .login .login-form .panel{padding:13px!important}
+@media(max-width:370px){
+  .login .login-form{padding:0 8px!important}
+  .login .login-form .panel{padding:13px!important}
+  .login .login-form .panel h2{font-size:25px!important}
 }
 @media(max-width:950px) and (orientation:landscape) and (max-height:540px){
- .login .login-art{max-width:700px!important;margin:0 auto!important}
- .login .login-form{margin-top:-12px!important}
+  .login .login-art{max-width:740px!important;margin:0 auto!important}
+  .login .login-form{margin-top:-9px!important}
 }
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:'nails'+c[1]+'.jpg',count:c[2],desc:c[3]}));
