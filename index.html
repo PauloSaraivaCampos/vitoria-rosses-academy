@@ -170,6 +170,21 @@ html,body,#app,.app{min-height:100%}
 .lesson-video-spinner{width:37px;height:37px;border:3px solid #674e5b;border-top-color:#e2b87b;border-radius:50%;animation:lesson-spinner 1s linear infinite}
 @keyframes lesson-spinner{to{transform:rotate(360deg)}}
 
+
+/* Capas reais de aulas, com aviso de vídeo indisponível na lista lateral */
+.lesson-video-item{min-height:77px}
+.lesson-video-thumb{position:relative;flex:0 0 69px;width:69px;height:49px;overflow:hidden;border:1px solid #604554;border-radius:7px;background:linear-gradient(135deg,#272029,#110e15);display:flex;align-items:center;justify-content:center}
+.lesson-video-thumb img,.lesson-video-thumb video{display:block;width:100%;height:100%;object-fit:cover;border:0;background:#000}
+.lesson-video-thumb .lesson-thumb-fallback{font-family:Georgia,serif;color:#bc995d;font-size:20px}
+.lesson-video-thumb.lesson-thumb-no-video{flex-direction:column;gap:0;background:linear-gradient(135deg,#2b1d2a,#130d16);border-color:#5d4148}
+.lesson-thumb-empty-icon{color:#bd9a76;font-size:18px;line-height:1}
+.lesson-thumb-empty-text{color:#d9b49e;font-size:8px;text-align:center;line-height:1.3;padding:0 2px}
+.lesson-thumb-file-icon{color:#f3cb98;font-size:27px}
+.lesson-thumb-badge{font-size:18px}
+.lesson-video-info{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.lesson-video-info small{font-size:11px;line-height:1.3;color:#c6a8ae}
+.lesson-video-mark{flex-shrink:0}
+
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:'nails'+c[1]+'.jpg',count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
@@ -203,8 +218,9 @@ function remoteSetupForm(){modal={title:'Cadastrar administradora principal',bod
 async function remoteCreateAdmin(){try{const out=await remoteAPI('setup',{token:document.getElementById('setup-token').value,name:document.getElementById('setup-name').value.trim(),email:document.getElementById('setup-email').value.trim(),password:document.getElementById('setup-pass').value});session={email:out.user.email};modal=null;remoteSetupRequired=false;await remoteRefresh();go('admin')}catch(e){alert(e.message)}}
 const KEY='vra_demo_v1';let state=JSON.parse(localStorage.getItem(KEY)||'null')||{users:[{name:'Aluna Demonstração',email:'aluna@demo.com',password:'123456',role:'student',plans:['essencial'],grants:{},progress:{}}],orders:[],globalLocks:{},customCourses:[],settings:{}};let session=JSON.parse(sessionStorage.getItem('vra_session')||'null'),page='home',selectedCourse=1,selectedLesson=0,courseTab='aulas',adminTab='dashboard',query='',modal=null;
 const save=()=>REMOTE_MODE?remoteSave():localStorage.setItem(KEY,JSON.stringify(state));const current=()=>state.users.find(u=>u.email===session?.email);const courses=()=>[...COURSES,...state.customCourses];const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));const isAdmin=()=>current()?.role==='admin';const hasCourse=(u,id)=>u?.role==='admin'||(u?.grants?.[id]!==false&&(u?.grants?.[id]===true||u?.plans?.some(p=>PLANS.find(z=>z.id===p)?.access.includes(Number(id)))));const unlocked=(u,id,n)=>hasCourse(u,id)&&state.globalLocks[id+':'+n]!==true&&u?.grants?.[id+':'+n]!==false;const done=(id,n)=>!!current()?.progress?.[id+':'+n];const progress=id=>{const c=courses().find(x=>String(x.id)===String(id));const n=c?.count||LESSONS.length;return Math.round(100*Array.from({length:n},(_,i)=>done(id,i)).filter(Boolean).length/n)};const go=p=>{page=p;modal=null;render();window.scrollTo(0,0);if(REMOTE_MODE&&session)remoteRefresh().catch(e=>console.warn('Atualização dos dados indisponível',e.message))};
+let lessonCatalogTicket=0,lessonCatalog=null;
 let lessonVideoTicket=0;
-function render(){let root=document.getElementById('root');root.innerHTML=!session?login():`<div class="app">${header()}${isAdmin()&&page==='admin'?admin():page==='home'?home():page==='catalog'?catalog():page==='mine'?mine():page==='course'?course():page==='plans'?plans():page==='profile'?profile():page==='certificates'?certificatesPage():home()}<div class="foot">© Vitória Rosses Academy • Protótipo de testes • Pagamentos e acesso apenas demonstrativos</div></div>${modal?modalHTML():''}`;if(session&&page==='course'&&!modal){const ticket=++lessonVideoTicket;Promise.resolve().then(()=>loadLessonVideo(ticket))}else lessonVideoTicket++;}
+function render(){let root=document.getElementById('root');root.innerHTML=!session?login():`<div class="app">${header()}${isAdmin()&&page==='admin'?admin():page==='home'?home():page==='catalog'?catalog():page==='mine'?mine():page==='course'?course():page==='plans'?plans():page==='profile'?profile():page==='certificates'?certificatesPage():home()}<div class="foot">© Vitória Rosses Academy • Protótipo de testes • Pagamentos e acesso apenas demonstrativos</div></div>${modal?modalHTML():''}`;if(session&&page==='course'&&!modal){const ticket=++lessonVideoTicket;Promise.resolve().then(()=>loadLessonVideo(ticket));const ct=++lessonCatalogTicket;Promise.resolve().then(()=>loadLessonCatalog(ct))}else{lessonVideoTicket++;lessonCatalogTicket++}}
 function header(){return `<header class="top vr-top"><button class="vr-logo" onclick="go('home')" aria-label="Início"><img class="vr-header-logo-img" src="Logo%20dourada%20Vit%C3%B3ria%20Ross%C3%A9s%20Nail%20Designer.png?v=20261107" alt="Vitória Rossés Nail Designer" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="vr-logo-fallback" style="display:none">VR <small>VITÓRIA ROSSES · NAIL DESIGNER</small></span></button><nav class="nav vr-nav">${[['home','Início'],['mine','Meus Cursos']].map(([p,t])=>`<button class="${page===p?'active':''}" onclick="go('${p}')">${t}</button>`).join('')}<button onclick="showCertificates()">Certificados</button><button onclick="showSupport()">Suporte</button>${isAdmin()?'<button onclick="go(\'admin\')">Administração</button>':''}</nav><div class="right vr-actions"><button class="ghost vr-icon" title="Pesquisar cursos" aria-label="Pesquisar cursos" onclick="go('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></button><button class="ghost vr-icon" title="Notificações" aria-label="Notificações" onclick="showNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/></svg></button><button class="vr-profile" title="Meu perfil" aria-label="Meu perfil" onclick="go('profile')"><img src="vitoria.jpg" alt="Perfil"></button><button class="ghost vr-exit" onclick="logout()">Sair</button></div></header>`}
 async function downloadCertificate(id){
  const c=courses().find(x=>String(x.id)===String(id)),u=current(),hours=certificateHours(id);
@@ -279,7 +295,7 @@ function home(){return `<main class="page"><section class="vr-course-hero vr-ban
 function catalog(){let list=courses().filter(c=>c.title.toLowerCase().includes(query.toLowerCase()));return `<main class="page"><h1 class="serif">Todos os cursos</h1><p class="muted">Descubra técnicas profissionais e evolua no seu ritmo.</p><input class="field search" placeholder="Buscar cursos..." value="${esc(query)}" oninput="query=this.value;document.getElementById('results').innerHTML=courses().filter(c=>c.title.toLowerCase().includes(query.toLowerCase())).map(card).join('')"><div id="results" class="cards">${list.map(card).join('')}</div></main>`}
 function mine(){return `<main class="page"><h1 class="serif">Meus cursos</h1><p class="muted">Sua jornada de aprendizado, em um só lugar.</p><div class="cards">${courses().filter(c=>hasCourse(current(),c.id)).map(card).join('')||'<p class="muted">Você ainda não tem cursos liberados.</p>'}</div><p><button class="btn" onclick="go('plans')">Explorar pacotes</button></p></main>`}
 function openCourse(id){selectedCourse=id;selectedLesson=0;courseTab='aulas';go('course')}
-function course(){let c=courses().find(c=>c.id===selectedCourse)||courses()[0],u=current(),access=hasCourse(u,c.id),allow=unlocked(u,c.id,selectedLesson);return `<main class="page"><button class="ghost" onclick="go('catalog')">← Voltar aos cursos</button><div class="grid2"><section><div class="video lesson-player" id="lesson-player" aria-live="polite"><div class="lesson-video-status"><span class="lesson-video-spinner" aria-hidden="true"></span><p>Preparando o vídeo desta aula...</p></div></div><h1 class="serif">${esc(c.title)}</h1><p class="muted">${esc(c.desc)}</p><div class="flex"><span class="pill">${access?'✓ Curso liberado':'🔒 Curso bloqueado'}</span><span class="muted">${progress(c.id)}% concluído</span></div><div class="bar"><i style="width:${progress(c.id)}%"></i></div>${Number(c.id)===1?`<div class="panel" style="margin-top:15px"><h3>Certificado de conclusão</h3><p class="muted">${progress(c.id)===100&&access?"Certificado disponível para download.":"Conclua todas as aulas para liberar o certificado."}</p><button class="btn" ${progress(c.id)===100&&access?"":"disabled"} onclick="downloadCertificate(1)">Baixar certificado em PDF</button></div>`:""}<div class="tabs">${[['aulas','Aulas'],['materiais','Material de apoio'],['lista','Lista de materiais'],['notas','Anotações']].map(([id,t])=>`<button class="${courseTab===id?'active':''}" onclick="courseTab='${id}';render()">${t}</button>`).join('')}</div>${courseTab==='aulas'?`<div class="panel"><h3>${esc(LESSONS[selectedLesson])}</h3><p class="muted">Aula ${selectedLesson+1} de ${c.count}. Aprenda cada etapa com atenção aos detalhes.</p>${allow?`<button class="btn" onclick="markDone()">${done(c.id,selectedLesson)?'✓ Aula concluída':'Marcar aula como concluída'}</button>`:`<div class="notice">Esta aula está bloqueada. Solicite a liberação ou adquira o pacote correspondente.</div><button class="btn" onclick="go('plans')">Ver pacotes</button>`}</div>`:courseTab==='materiais'?`<div class="panel"><h3>PDF passo a passo</h3><p class="muted">Material demonstrativo para acompanhar a técnica.</p><button class="btn" ${!allow?'disabled':''} onclick="downloadPDF()">⬇ Baixar PDF da aula</button></div>`:courseTab==='lista'?`<div class="panel"><h3>Checklist de materiais</h3>${['Lixa e bloco polidor','Cabine UV/LED','Primer e desidratador','Gel base e gel construtor','Pincel profissional','Luvas e itens de biossegurança'].map(t=>`<label style="display:block;margin:14px"><input type="checkbox" class="switch"> ${t}</label>`).join('')}</div>`:`<div class="panel"><h3>Minhas anotações</h3><textarea id="note" class="field" rows="5" placeholder="Escreva suas anotações...">${esc(u.notes?.[c.id+':'+selectedLesson]||'')}</textarea><button class="btn" onclick="saveNote()">Salvar anotações</button></div>`}</section><aside><div class="panel"><div class="flex space"><h3>Conteúdo do curso</h3><span class="pill">${c.count} aulas</span></div>${LESSONS.slice(0,c.count).map((t,i)=>`<div class="lesson ${selectedLesson===i?'selected':''}" onclick="selectedLesson=${i};render()"><img src="nails${(i%12)+1}.jpg"><span><b class="small">${i+1}. ${t}</b><small>${(8+i*2)%23+5}:20 min</small></span><b>${unlocked(u,c.id,i)?done(c.id,i)?'✓':'▶':'🔒'}</b></div>`).join('')}</div></aside></div></main>`}
+function course(){let c=courses().find(c=>c.id===selectedCourse)||courses()[0],u=current(),access=hasCourse(u,c.id),allow=unlocked(u,c.id,selectedLesson);return `<main class="page"><button class="ghost" onclick="go('catalog')">← Voltar aos cursos</button><div class="grid2"><section><div class="video lesson-player" id="lesson-player" aria-live="polite"><div class="lesson-video-status"><span class="lesson-video-spinner" aria-hidden="true"></span><p>Preparando o vídeo desta aula...</p></div></div><h1 class="serif">${esc(c.title)}</h1><p class="muted">${esc(c.desc)}</p><div class="flex"><span class="pill">${access?'✓ Curso liberado':'🔒 Curso bloqueado'}</span><span class="muted">${progress(c.id)}% concluído</span></div><div class="bar"><i style="width:${progress(c.id)}%"></i></div>${Number(c.id)===1?`<div class="panel" style="margin-top:15px"><h3>Certificado de conclusão</h3><p class="muted">${progress(c.id)===100&&access?"Certificado disponível para download.":"Conclua todas as aulas para liberar o certificado."}</p><button class="btn" ${progress(c.id)===100&&access?"":"disabled"} onclick="downloadCertificate(1)">Baixar certificado em PDF</button></div>`:""}<div class="tabs">${[['aulas','Aulas'],['materiais','Material de apoio'],['lista','Lista de materiais'],['notas','Anotações']].map(([id,t])=>`<button class="${courseTab===id?'active':''}" onclick="courseTab='${id}';render()">${t}</button>`).join('')}</div>${courseTab==='aulas'?`<div class="panel"><h3>${esc(LESSONS[selectedLesson])}</h3><p class="muted">Aula ${selectedLesson+1} de ${c.count}. Aprenda cada etapa com atenção aos detalhes.</p>${allow?`<button class="btn" onclick="markDone()">${done(c.id,selectedLesson)?'✓ Aula concluída':'Marcar aula como concluída'}</button>`:`<div class="notice">Esta aula está bloqueada. Solicite a liberação ou adquira o pacote correspondente.</div><button class="btn" onclick="go('plans')">Ver pacotes</button>`}</div>`:courseTab==='materiais'?`<div class="panel"><h3>PDF passo a passo</h3><p class="muted">Material demonstrativo para acompanhar a técnica.</p><button class="btn" ${!allow?'disabled':''} onclick="downloadPDF()">⬇ Baixar PDF da aula</button></div>`:courseTab==='lista'?`<div class="panel"><h3>Checklist de materiais</h3>${['Lixa e bloco polidor','Cabine UV/LED','Primer e desidratador','Gel base e gel construtor','Pincel profissional','Luvas e itens de biossegurança'].map(t=>`<label style="display:block;margin:14px"><input type="checkbox" class="switch"> ${t}</label>`).join('')}</div>`:`<div class="panel"><h3>Minhas anotações</h3><textarea id="note" class="field" rows="5" placeholder="Escreva suas anotações...">${esc(u.notes?.[c.id+':'+selectedLesson]||'')}</textarea><button class="btn" onclick="saveNote()">Salvar anotações</button></div>`}</section><aside><div class="panel"><div class="flex space"><h3>Conteúdo do curso</h3><span class="pill">${c.count} aulas</span></div>${LESSONS.slice(0,c.count).map((t,i)=>`<div class="lesson lesson-video-item ${selectedLesson===i?'selected':''}" onclick="selectedLesson=${i};render()"><div class="lesson-video-thumb" data-lesson-preview="${i}" data-course-preview="${c.id}"><span class="lesson-thumb-fallback">VR</span></div><span class="lesson-video-info"><b class="small">${i+1}. ${esc(t)}</b><small data-lesson-availability="${i}">Verificando vídeo...</small></span><b class="lesson-video-mark" data-lesson-mark="${i}">${unlocked(u,c.id,i)?done(c.id,i)?'✓':'▶':'🔒'}</b></div>`).join('')}</div></aside></div></main>`}
 function showLocked(){alert('Conteúdo bloqueado. Consulte os pacotes ou solicite liberação à administradora.')};function videoPlaybackInfo(raw){
  const u=new URL(raw);
  if(u.protocol!=='https:')throw Error('O link do vídeo deve usar HTTPS.');
@@ -304,6 +320,71 @@ function showLocked(){alert('Conteúdo bloqueado. Consulte os pacotes ou solicit
  }
  if(/\.(mp4|webm|ogg)$/i.test(u.pathname))return {kind:'video',src:u.href,provider:'Vídeo'};
  throw Error('Use um link do YouTube, Vimeo ou um arquivo MP4, WebM ou OGG acessível por HTTPS.');
+}
+function lessonLocalPreview(url){
+ if(!url)return null;
+ try{
+  const u=new URL(url),host=u.hostname.toLowerCase(),parts=u.pathname.split('/').filter(Boolean);
+  let yt='';
+  if(host==='youtu.be'||host==='www.youtu.be')yt=parts[0];
+  if(['youtube.com','www.youtube.com','m.youtube.com','music.youtube.com','youtube-nocookie.com','www.youtube-nocookie.com'].includes(host))
+   yt=parts[0]==='watch'?u.searchParams.get('v'):['embed','shorts','live','v'].includes(parts[0])?parts[1]:'';
+  if(yt&&/^[A-Za-z0-9_-]{11}$/.test(yt))return {kind:'image',thumbnail:'https://i.ytimg.com/vi/'+yt+'/hqdefault.jpg'};
+  if(/\.(mp4|webm|ogg)$/i.test(u.pathname))return {kind:'file',url:u.href};
+  return {kind:'other'};
+ }catch{return {kind:'other'}}
+}
+function setLessonThumb(index,info,allowed){
+ const thumb=document.querySelector('[data-lesson-preview="'+index+'"]');
+ const label=document.querySelector('[data-lesson-availability="'+index+'"]');
+ const mark=document.querySelector('[data-lesson-mark="'+index+'"]');
+ if(!thumb||!label)return;
+ thumb.replaceChildren();
+ if(!allowed){
+  thumb.classList.add('lesson-thumb-no-video');
+  const lock=document.createElement('span');lock.className='lesson-thumb-badge';lock.textContent='🔒';thumb.append(lock);
+  label.textContent='Aula bloqueada';return
+ }
+ if(!info){
+  thumb.classList.add('lesson-thumb-no-video');
+  const icon=document.createElement('span');icon.className='lesson-thumb-empty-icon';icon.textContent='▷';
+  const msg=document.createElement('span');msg.className='lesson-thumb-empty-text';msg.textContent='Vídeo indisponível';
+  thumb.append(icon,msg);label.textContent='Vídeo ainda não disponível';
+  if(mark&&!mark.textContent.includes('✓'))mark.textContent='—';
+  return
+ }
+ thumb.classList.remove('lesson-thumb-no-video');
+ label.textContent='Vídeo disponível';
+ if(info.kind==='image'&&info.thumbnail){
+  const img=document.createElement('img');img.alt='Capa do vídeo da aula';img.loading='lazy';img.referrerPolicy='no-referrer';img.src=info.thumbnail;
+  img.onerror=()=>{img.remove();thumb.textContent='▶';thumb.classList.add('lesson-thumb-no-video')};
+  thumb.append(img);
+ }else if(info.kind==='file'&&info.url){
+  const video=document.createElement('video');
+  video.className='lesson-thumb-video';video.muted=true;video.playsInline=true;video.preload='metadata';video.setAttribute('aria-label','Prévia do vídeo');
+  video.addEventListener('loadedmetadata',()=>{if(Number.isFinite(video.duration)&&video.duration>1){try{video.currentTime=Math.min(1,video.duration/3)}catch{}}});
+  video.addEventListener('error',()=>{video.remove();const icon=document.createElement('span');icon.className='lesson-thumb-file-icon';icon.textContent='▶';thumb.append(icon)});
+  video.src=info.url;thumb.append(video);
+ }else{
+  const icon=document.createElement('span');icon.className='lesson-thumb-file-icon';icon.textContent='▶';thumb.append(icon)
+ }
+}
+async function loadLessonCatalog(ticket){
+ const id=selectedCourse,user=current();
+ if(!user||page!=='course'||ticket!==lessonCatalogTicket)return;
+ try{
+  let items=[];
+  if(REMOTE_MODE){const result=await remoteAPI('videos/catalog?course='+encodeURIComponent(id));items=result.items||[]}
+  else items=Object.entries(state.videoLessons||{}).filter(([key,value])=>key.startsWith(id+':')&&!!value).map(([key,value])=>({lesson:Number(key.split(':')[1]),...lessonLocalPreview(value)}));
+  if(ticket!==lessonCatalogTicket||selectedCourse!==id||page!=='course')return;
+  const byLesson=new Map(items.map(x=>[Number(x.lesson),x]));
+  const course=courses().find(c=>c.id===id),total=course?.count||0;
+  for(let i=0;i<total;i++)setLessonThumb(i,byLesson.get(i),unlocked(user,id,i));
+ }catch(e){
+  if(ticket!==lessonCatalogTicket)return;
+  document.querySelectorAll('[data-lesson-availability]').forEach(el=>{el.textContent='Não foi possível verificar o vídeo'});
+  console.warn('Falha ao carregar miniaturas das aulas:',e.message)
+ }
 }
 function showLessonPlayerState(title,message,kind='empty'){
  const area=document.getElementById('lesson-player');if(!area)return;
