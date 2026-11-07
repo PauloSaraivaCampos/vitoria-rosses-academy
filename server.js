@@ -87,7 +87,7 @@ async function api(req,res,url){
    await client.query('BEGIN');
    const c=(await client.query('SELECT data FROM academy_data WHERE id=1')).rows[0]?.data;
    const course=({1:12,2:10,3:8,4:15,5:12,6:9,7:7,8:8})[id]||asArr(c.customCourses).find(y=>Number(y.id)===id)?.count||0;
-   if(n>=course)return fail(res,'Aula inexistente',404);
+   if(n>=course){await client.query('ROLLBACK');return fail(res,'Aula inexistente',404)}
    const video=asObj(c.videoLessons)[id+':'+n];
    if(typeof video!=='string'||!video.startsWith('https://')){await client.query('ROLLBACK');return fail(res,'Esta aula ainda não possui vídeo cadastrado',409)}
    const current=(await client.query('SELECT progress,certificate_dates FROM users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
