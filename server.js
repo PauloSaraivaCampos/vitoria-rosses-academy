@@ -42,10 +42,7 @@ async function updateState(user,payload){
   }else{
    const own=asArr(payload.users).find(x=>x?.email===user.email);
    if(!own)throw Error('Usuário não encontrado');
-   const current=await client.query('SELECT grants,plans FROM users WHERE id=$1',[user.id]);
-   const courseAccess=id=>{const g=asObj(current.rows[0].grants),plans=asArr(current.rows[0].plans);return g[id]===true||plans.some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)))};
-   const progress=Object.fromEntries(Object.entries(asObj(own.progress)).filter(([k,v])=>/^\d+:\d+$/.test(k)&&Number(k.split(':')[1])<30&&courseAccess(k.split(':')[0])&&typeof v==='boolean'));
-   await client.query('UPDATE users SET progress=$1,notes=$2,certificate_dates=$3 WHERE id=$4',[JSON.stringify(progress),JSON.stringify(asObj(own.notes)),JSON.stringify(asObj(own.certificateDates)),user.id]);
+   await client.query('UPDATE users SET notes=$1 WHERE id=$2',[JSON.stringify(asObj(own.notes)),user.id]);
   }
   await client.query('COMMIT');
  }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
@@ -80,6 +77,27 @@ async function api(req,res,url){
 
  const isCourseAllowed=(u,id)=>u.role==='admin'||asObj(u.grants)[id]===true||asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)));
  const isLessonUnlocked=async(u,id,n)=>{if(!isCourseAllowed(u,id))return false;const result=await db.query('SELECT data FROM academy_data WHERE id=1');const locks=asObj(result.rows[0]?.data?.globalLocks);return locks[id+':'+n]!==true&&asObj(u.grants)[id+':'+n]!==false};
+ if(route==='/api/lesson/complete'&&method==='POST'){
+  if(user.role!=='student')return fail(res,'Somente alunas podem concluir aulas',403);
+  const x=await readBody(req),id=Number(x.course),n=Number(x.lesson);
+  if(!Number.isInteger(id)||!Number.isInteger(n)||id<1||n<0||n>29)return fail(res,'Aula inválida');
+  if(!await isLessonUnlocked(user,id,n))return fail(res,'Aula bloqueada',403);
+  const client=await db.connect();
+  try{
+   await client.query('BEGIN');
+   const c=(await client.query('SELECT data FROM academy_data WHERE id=1')).rows[0]?.data;
+   const course=({1:12,2:10,3:8,4:15,5:12,6:9,7:7,8:8})[id]||asArr(c.customCourses).find(y=>Number(y.id)===id)?.count||0;
+   if(n>=course)return fail(res,'Aula inexistente',404);
+   const video=asObj(c.videoLessons)[id+':'+n];
+   if(typeof video!=='string'||!video.startsWith('https://')){await client.query('ROLLBACK');return fail(res,'Esta aula ainda não possui vídeo cadastrado',409)}
+   const current=(await client.query('SELECT progress,certificate_dates FROM users WHERE id=$1 FOR UPDATE',[user.id])).rows[0];
+   const progress={...asObj(current.progress),[id+':'+n]:true};
+   const dates={...asObj(current.certificate_dates)};
+   if(Array.from({length:course},(_,i)=>progress[id+':'+i]===true).every(Boolean)&&!dates[id])dates[id]=new Date().toISOString().slice(0,10);
+   await client.query('UPDATE users SET progress=$1,certificate_dates=$2 WHERE id=$3',[JSON.stringify(progress),JSON.stringify(dates),user.id]);
+   await client.query('COMMIT');return ok(res,{ok:true,progress,certificateDates:dates});
+  }catch(err){await client.query('ROLLBACK');throw err}finally{client.release()}
+ }
  if(route==='/api/video'&&method==='GET'){
   const id=Number(url.searchParams.get('course')),n=Number(url.searchParams.get('lesson'));
   if(!Number.isInteger(id)||!Number.isInteger(n)||id<1||n<0||n>30)return fail(res,'Aula inválida');
