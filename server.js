@@ -28,7 +28,7 @@ function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.pla
 const asObj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
 const asArr=v=>Array.isArray(v)?v:[];
 const safeStr=(v,max=1000)=>typeof v==='string'?v.slice(0,max):'';
-async function stateFor(user){const [data,users]=await Promise.all([db.query('SELECT data FROM academy_data WHERE id=1'),user.role==='admin'?db.query('SELECT * FROM users ORDER BY id'):Promise.resolve({rows:[user]})]);const source={...blank(),...asObj(data.rows[0].data)};if(user.role!=='admin'){delete source.monthlyPayments;delete source.orders;source.announcements=asArr(source.announcements);source.videoLessons={}}return {...source,users:users.rows.map(publicUser)}}
+async function stateFor(user){const [data,users]=await Promise.all([db.query('SELECT data FROM academy_data WHERE id=1'),user.role==='admin'?db.query('SELECT * FROM users ORDER BY id'):Promise.resolve({rows:[user]})]);const source={...blank(),...asObj(data.rows[0].data)};if(user.role!=='admin'){delete source.monthlyPayments;delete source.orders;source.announcements=asArr(source.announcements);source.availableVideos=Object.keys(asObj(source.videoLessons)).filter(k=>{const id=Number(k.split(':')[0]);return asObj(user.grants)[id]!==false&&(asObj(user.grants)[id]===true||asArr(user.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(id)))});source.videoLessons={}}return {...source,users:users.rows.map(publicUser)}}
 async function updateState(user,payload){
  const client=await db.connect();try{
   await client.query('BEGIN');
@@ -36,7 +36,7 @@ async function updateState(user,payload){
    await client.query('SELECT data FROM academy_data WHERE id=1 FOR UPDATE');
    const previous=(await client.query('SELECT data FROM academy_data WHERE id=1')).rows[0].data;
    const next={...previous};
-   for(const key of ['globalLocks','settings','videoLessons','certificateHours']){if(payload[key]!==undefined)next[key]=asObj(payload[key])}
+   for(const key of ['globalLocks','settings','certificateHours']){if(payload[key]!==undefined)next[key]=asObj(payload[key])}
    for(const key of ['customCourses','announcements','monthlyPayments','orders']){if(payload[key]!==undefined)next[key]=asArr(payload[key]).slice(0,3000)}
    if(payload.certificateSignature!==undefined)next.certificateSignature=safeStr(payload.certificateSignature,200);
    await client.query('UPDATE academy_data SET data=$1 WHERE id=1',[JSON.stringify(next)]);
@@ -76,7 +76,7 @@ async function api(req,res,url){
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
  if(route==='/api/session'&&method==='GET')return ok(res,{user:publicUser(user)});
 
- const isCourseAllowed=(u,id)=>u.role==='admin'||asObj(u.grants)[id]===true||asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)));
+ const isCourseAllowed=(u,id)=>{if(u.role==='admin')return true;const grant=asObj(u.grants)[id];if(grant===false)return false;return grant===true||asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)))};
  const isLessonUnlocked=async(u,id,n)=>{if(!isCourseAllowed(u,id))return false;const result=await db.query('SELECT data FROM academy_data WHERE id=1');const locks=asObj(result.rows[0]?.data?.globalLocks);return locks[id+':'+n]!==true&&asObj(u.grants)[id+':'+n]!==false};
  if(route==='/api/lesson/complete'&&method==='POST'){
   if(user.role!=='student')return fail(res,'Somente alunas podem concluir aulas',403);
@@ -158,6 +158,13 @@ async function api(req,res,url){
   if(user.role!=='admin')return fail(res,'Acesso reservado à administração',403);
   const x=await readBody(req);if(!Number.isInteger(x.course)||!Number.isInteger(x.lesson)||x.course<1||x.lesson<0||x.lesson>30||typeof x.value!=='boolean')return fail(res,'Dados inválidos');
   await db.query("UPDATE academy_data SET data=jsonb_set(data,$1::text[],$2::jsonb,true) WHERE id=1",[['globalLocks',x.course+':'+x.lesson],JSON.stringify(x.value)]);return ok(res,{ok:true});
+ }
+ if(route==='/api/admin/video/link'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Somente administradora pode modificar vídeos',403);
+  const x=await readBody(req),id=Number(x.course),n=Number(x.lesson),link=safeStr(x.url,2048).trim();
+  if(!Number.isInteger(id)||id<1||id>999||!Number.isInteger(n)||n<0||n>29||!/^https:\/\/[^\s]+$/i.test(link))return fail(res,'Aula ou endereço do vídeo inválido',400);
+  await db.query('UPDATE academy_data SET data=jsonb_set(data,$1::text[],$2::jsonb,true) WHERE id=1',[['videoLessons',id+':'+n],JSON.stringify(link)]);
+  return ok(res,{ok:true});
  }
  if(route==='/api/admin/video/upload'&&method==='POST'){
   if(user.role!=='admin')return fail(res,'Somente a administradora pode enviar vídeos',403);
