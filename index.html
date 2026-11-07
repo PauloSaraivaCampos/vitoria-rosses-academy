@@ -154,6 +154,9 @@ html,body,#app,.app{min-height:100%}
 .video.lesson-player .embedded-lesson-video{width:100%;height:100%;display:block;border:0;background:#000;position:absolute;inset:0}
 .video.lesson-player.playing>img,.video.lesson-player.playing>button{display:none}
 .video.lesson-player .lesson-player-error{position:absolute;bottom:10px;left:15px;right:15px;color:#fff;background:#201117d9;padding:12px;border-radius:6px;z-index:2}
+
+/* Administração de vídeos privados */
+.premium-video-upload{border:1px dashed #ad845c;border-radius:10px;padding:15px;margin:14px 0;background:#1c1520}.premium-video-upload>label{display:block;color:#e0bd85;font-weight:600;margin-bottom:8px}.premium-video-upload input{width:100%;margin-bottom:10px}.premium-video-status{padding:12px;border:1px solid #47674a;border-radius:8px;color:#bcdfbf;background:#152419;margin:12px 0}.premium-upload-track{height:8px;border-radius:7px;background:#473741;overflow:hidden;margin:10px 0}.premium-upload-track>span{display:block;width:0%;height:100%;background:#cf9f5c;transition:width .2s}.premium-video-divider{color:#9d8990;letter-spacing:2px;text-align:center;font-size:11px;margin:18px 0}
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:'nails'+c[1]+'.jpg',count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
@@ -370,18 +373,75 @@ function premiumVideos(){
  state.videoLessons??={};
  const choices=courses().map(function(c){return '<option value="'+c.id+'">'+esc(c.title)+'</option>'}).join('');
  const rows=courses().map(function(c){return '<div class="premium-video-course"><h3>'+esc(c.title)+'</h3>'+Array.from({length:c.count},function(_,i){const k=c.id+':'+i,v=state.videoLessons[k]||'',title=LESSONS[i]||'Aula '+(i+1);return '<div class="premium-video-row"><div><b>'+(i+1)+'. '+esc(title)+'</b><small>'+(v?'Vídeo cadastrado':'Sem vídeo cadastrado')+'</small></div><button class="btn tiny outline" onclick="premiumEditVideo('+c.id+','+i+')">'+(v?'Editar':'Adicionar vídeo')+'</button></div>'}).join('')+'</div>'}).join('');
- return '<div class="premium-panel"><div class="flex space"><div><h3>Biblioteca de vídeos</h3><p class="muted">Cadastre o endereço de cada aula e organize o material por curso.</p></div><button class="btn" onclick="premiumEditVideo(1,0)">+ Cadastrar vídeo</button></div><div class="premium-notice">Os vídeos são cadastrados por URL (YouTube não listado ou outro endereço permitido). Arquivos de vídeo ainda não são enviados diretamente ao servidor.</div></div>'+rows;
+ return '<div class="premium-panel"><div class="flex space"><div><h3>Biblioteca de vídeos</h3><p class="muted">Envie arquivos MP4 diretamente pelo painel ou cadastre links de vídeo externos.</p></div><button class="btn" onclick="premiumEditVideo(1,0)">+ Cadastrar vídeo</button></div><div class="premium-notice">Os vídeos enviados ficam em armazenamento privado no Railway. Formatos: MP4, WebM ou OGG, com limite de 500 MB por arquivo.</div></div>'+rows;
 }
 function premiumEditVideo(id,n){
- const k=id+':'+n,v=state.videoLessons?.[k]||'';
- modal={title:'Vídeo da aula '+(n+1),body:'<p class="muted">'+esc(courses().find(x=>x.id===id)?.title)+'</p><label>Link do vídeo<input class="field" id="premium-video-url" value="'+esc(v)+'" placeholder="https://..."></label><p class="small muted">Cole um link do YouTube, Vimeo ou um arquivo MP4/WebM/OGG em HTTPS. O vídeo será reproduzido no player do curso. Vídeo não listado não é privado.</p><button class="btn" onclick="premiumSaveVideo('+id+','+n+')">Salvar vídeo</button> <button class="btn outline" onclick="premiumRemoveVideo('+id+','+n+')">Remover</button>'};render()
+ const k=id+':'+n,v=state.videoLessons?.[k]||'',stored=String(v).startsWith('private-video:');
+ const course=courses().find(c=>c.id===id);
+ modal={title:'Vídeo da aula '+(n+1),body:
+ '<p class="muted">'+esc(course?.title||'Curso')+' • '+esc(LESSONS[n]||'Aula '+(n+1))+'</p>'+
+ (stored?'<div class="premium-video-status">✓ Vídeo privado já enviado para esta aula.</div>':'')+
+ '<div class="premium-video-upload"><label>Enviar vídeo do computador (até 500 MB)</label>'+
+ '<input class="field" id="premium-video-file" type="file" accept="video/mp4,video/webm,video/ogg,.mp4,.webm,.ogv">'+
+ '<div id="premium-upload-status" class="small muted">Formatos: MP4 (recomendado), WebM ou OGG.</div>'+
+ '<div class="premium-upload-track" style="display:none"><span id="premium-upload-bar"></span></div>'+
+ '<button class="btn" id="premium-upload-button" onclick="premiumUploadVideo('+id+','+n+')">⬆ Enviar vídeo</button></div>'+
+ '<div class="premium-video-divider">OU CADASTRAR UM LINK</div>'+
+ '<label>Link externo (YouTube, Vimeo ou MP4 HTTPS)<input class="field" id="premium-video-url" value="'+esc(stored?'':v)+'" placeholder="https://..."></label>'+
+ '<p class="small muted">Vídeos enviados para o Railway ficam no armazenamento privado; links externos seguem as permissões do site de origem.</p>'+
+ '<div class="flex" style="gap:9px;flex-wrap:wrap"><button class="btn outline" onclick="premiumSaveVideo('+id+','+n+')">Salvar link</button>'+
+ (v?'<button class="btn outline" onclick="premiumRemoveVideo('+id+','+n+')">Remover vídeo</button>':'')+
+ '</div>'};
+ render()
+}
+async function premiumUploadVideo(id,n){
+ if(!REMOTE_MODE)return alert('O upload direto está disponível no Railway.');
+ if(!isAdmin())return alert('Somente a administradora pode enviar vídeos.');
+ const file=document.getElementById('premium-video-file')?.files?.[0];
+ if(!file)return alert('Escolha um vídeo para enviar.');
+ if(!/\.(mp4|webm|ogv)$/i.test(file.name)||!['video/mp4','video/webm','video/ogg'].includes(file.type))return alert('Escolha um arquivo MP4, WebM ou OGG válido.');
+ if(file.size>500*1024*1024)return alert('O arquivo deve ter até 500 MB.');
+ const status=document.getElementById('premium-upload-status'),button=document.getElementById('premium-upload-button'),track=document.querySelector('.premium-upload-track'),bar=document.getElementById('premium-upload-bar');
+ button.disabled=true;track.style.display='block';status.textContent='Iniciando envio...';
+ const data=new FormData();data.append('video',file,file.name);
+ const xhr=new XMLHttpRequest();
+ xhr.open('POST','/api/admin/video/upload?course='+encodeURIComponent(id)+'&lesson='+encodeURIComponent(n));
+ xhr.withCredentials=true;
+ xhr.upload.onprogress=event=>{
+  if(!event.lengthComputable)return;
+  const pct=Math.min(99,Math.round(event.loaded/event.total*100));
+  bar.style.width=pct+'%';status.textContent='Enviando vídeo: '+pct+'%';
+ };
+ xhr.onload=async()=>{
+  let output={};try{output=JSON.parse(xhr.responseText)}catch{}
+  if(xhr.status>=200&&xhr.status<300){
+   if(status)status.textContent='Vídeo enviado com sucesso!';
+   if(bar)bar.style.width='100%';
+   modal=null;
+   try{await remoteRefresh();adminTab='videos';render()}catch(e){alert('Vídeo enviado, mas não foi possível atualizar a lista: '+e.message)}
+  }else{if(status)status.textContent=output.error||'Falha no envio do vídeo.';button.disabled=false}
+ };
+ xhr.onerror=()=>{status.textContent='Erro de conexão durante o envio.';button.disabled=false};
+ xhr.ontimeout=()=>{status.textContent='Envio excedeu o tempo limite. Tente um arquivo menor.';button.disabled=false};
+ xhr.timeout=5*60*1000;
+ xhr.send(data);
 }
 function premiumSaveVideo(id,n){
- const v=document.getElementById('premium-video-url').value.trim();
- if(v&&!/^https:\/\/[^\s]+$/i.test(v))return alert('Informe um endereço HTTPS válido');
+ const v=document.getElementById('premium-video-url')?.value.trim()||'';
+ if(!v)return alert('Informe um link HTTPS. Para enviar um arquivo, use o botão Enviar vídeo.');
+ if(!/^https:\/\/[^\s]+$/i.test(v))return alert('Informe um endereço HTTPS válido.');
+ try{videoPlaybackInfo(v)}catch(e){return alert(e.message)}
  state.videoLessons??={};state.videoLessons[id+':'+n]=v;save();modal=null;render()
 }
-function premiumRemoveVideo(id,n){if(!confirm('Remover o link desta aula?'))return;delete state.videoLessons?.[id+':'+n];save();modal=null;render()}
+async function premiumRemoveVideo(id,n){
+ if(!confirm('Remover o vídeo desta aula?'))return;
+ if(REMOTE_MODE){
+  try{await remoteAPI('admin/video/remove',{course:id,lesson:n});modal=null;await remoteRefresh();adminTab='videos';render()}
+  catch(e){alert(e.message)}
+  return
+ }
+ delete state.videoLessons?.[id+':'+n];save();modal=null;render()
+}
 function premiumCertificates(){
  return '<div class="premium-panel"><h3>Modelos oficiais de certificados</h3><p class="muted">Os oito modelos originais ficam disponíveis na galeria. Configure a carga horária e o arquivo de assinatura antes da emissão.</p><div class="premium-actions"><button onclick="configureCertificates()"><span>⚙</span><b>Configurar certificados</b></button><button onclick="go(\'certificates\')"><span>✦</span><b>Visualizar galeria</b></button></div></div>'+
  '<div class="premium-certificate-list">'+courses().map(function(c){return '<div class="premium-panel"><h3>'+esc(c.title)+'</h3><p class="muted">'+(certificateHours(c.id)?certificateHours(c.id)+' horas':'Carga horária não configurada')+'</p><button class="btn tiny outline" onclick="previewCertificate('+c.id+')">Ver modelo</button></div>'}).join('')+'</div>'
