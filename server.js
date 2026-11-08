@@ -23,7 +23,7 @@ async function init(){
  await db.query('CREATE INDEX IF NOT EXISTS sessions_expiration ON sessions(expires_at)');
 }
 async function identify(req){if(!db)return null;const cookies=Object.fromEntries((req.headers.cookie||'').split(';').map(x=>x.trim().split('=').map(decodeURIComponent)));const token=cookies.vra_sid;if(!token||! /^[a-f0-9]{64}$/.test(token))return null;const r=await db.query('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);return r.rows[0]||null}
-async function makeSession(res,user){const token=crypto.randomBytes(32).toString('hex');await db.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '14 days')",[tokenHash(token),user.id]);res.setHeader('Set-Cookie','vra_sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=1209600')}
+async function makeSession(res,user){const token=crypto.randomBytes(32).toString('hex');await db.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '14 days')",[tokenHash(token),user.id]);res.setHeader('Set-Cookie','vra_sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/')}
 function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.plans||[],grants:u.grants||{},progress:u.progress||{},notes:u.notes||{},certificateDates:u.certificate_dates||{}}}
 const asObj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
 const asArr=v=>Array.isArray(v)?v:[];
