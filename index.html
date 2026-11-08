@@ -399,6 +399,40 @@ img,video,iframe{max-width:100%}
 .vr-top .vr-exit:hover,.vr-top .mobile-logout-link:hover{background:#493039!important;color:#fff!important}
 @media(max-width:700px){.vr-top .vr-exit{display:none!important}.vr-top .mobile-logout-link{display:block!important;margin-top:8px!important;border-top:1px solid #6c4b3c!important;background:#302027!important;color:#f4d1a4!important;font-weight:700!important}}
 @media(min-width:701px) and (max-width:950px){.vr-top .vr-exit{display:inline-flex!important;padding:6px 10px!important;font-size:12px!important}}
+
+.vr-top .vr-account-wrap{position:relative;z-index:50;min-width:0;flex:0 1 auto}
+.vr-top .vr-account-button{display:flex;align-items:center;gap:8px;border:1px solid #71543d;border-radius:999px;background:#23181e;padding:3px 9px 3px 3px;color:#f2d1ad;max-width:200px;min-height:39px}
+.vr-top .vr-account-avatar,.vr-profile-photo{display:flex;align-items:center;justify-content:center;flex-shrink:0;border-radius:50%;overflow:hidden;border:2px solid #c49b6a;background:#3c2632}
+.vr-top .vr-account-avatar{width:33px;height:33px}
+.vr-top .vr-account-avatar img,.vr-profile-photo img{width:100%;height:100%;object-fit:cover}
+.vr-avatar-initials{font-size:12px;color:#f7e0b4;font-weight:700}
+.vr-top .vr-account-name{font-size:12px;max-width:115px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vr-account-chevron{font-size:17px;color:#dab17d}
+.vr-account-menu[hidden]{display:none!important}
+.vr-account-menu{position:absolute;right:0;top:calc(100% + 8px);width:240px;max-width:90vw;background:#1d151c;border:1px solid #886347;border-radius:12px;padding:7px;box-shadow:0 16px 35px #000b;z-index:100}
+.vr-account-heading{display:flex;flex-direction:column;gap:5px;padding:10px;border-bottom:1px solid #564044;overflow-wrap:anywhere;color:#ebd0ae}
+.vr-account-heading small{font-size:11px;color:#bba6a5}
+.vr-account-menu>button{display:block;width:100%;text-align:left;padding:12px 10px;border:0;border-radius:7px;background:transparent;color:#f0e1d6}
+.vr-account-menu>button:hover{background:#442d35}
+.vr-account-menu>.vr-account-signout{color:#f6bd99;border-top:1px solid #594047}
+.vr-profile-card{display:grid;grid-template-columns:125px minmax(0,1fr);gap:20px;max-width:700px}
+.vr-profile-photo{width:115px;height:115px}.vr-profile-photo .vr-avatar-initials{font-size:34px}
+.vr-profile-intro h2{font-family:Georgia,serif;color:#e8c48d;margin:0}
+.vr-photo-upload{display:inline-flex;cursor:pointer;margin:10px 0}
+.vr-profile-info{grid-column:1/-1;border-top:1px solid #634c52;padding-top:14px}
+@media(max-width:700px){
+ .vr-top .vr-account-wrap{order:2}
+ .vr-top .vr-account-button{max-width:123px;padding:3px 5px 3px 3px;gap:5px}
+ .vr-top .vr-account-avatar{width:29px;height:29px}
+ .vr-top .vr-account-name{max-width:76px;font-size:10px}
+ .vr-top .vr-account-chevron{display:none}
+ .vr-account-menu{right:-42px}
+ .vr-top .mobile-menu-toggle{margin-left:0!important}
+ .vr-profile-card{grid-template-columns:85px minmax(0,1fr);gap:13px;padding:16px}
+ .vr-profile-photo{width:82px;height:82px}
+}
+@media(max-width:370px){.vr-top .vr-account-name{max-width:50px}}
+
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:'nails'+c[1]+'.jpg',count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
@@ -458,7 +492,49 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mobileMenuOpen)togg
 
 let lessonVideoTicket=0;
 function render(){let root=document.getElementById('root');root.innerHTML=!session?login():`<div class="app">${header()}${isAdmin()&&page==='admin'?admin():page==='home'?home():page==='catalog'?catalog():page==='mine'?mine():page==='course'?course():page==='plans'?plans():page==='profile'?profile():page==='certificates'?certificatesPage():home()}<div class="foot">© Vitória Rosses Academy • Protótipo de testes • Pagamentos e acesso apenas demonstrativos</div></div>${modal?modalHTML():''}`;if(session&&page==='course'&&!modal){const ticket=++lessonVideoTicket;Promise.resolve().then(()=>loadLessonVideo(ticket));const ct=++lessonCatalogTicket;Promise.resolve().then(()=>loadLessonCatalog(ct))}else{lessonVideoTicket++;lessonCatalogTicket++}if(mobileMenuOpen)toggleMobileMenu(true)}
-function header(){return `<header class="top vr-top"><button class="vr-logo" onclick="go('home')" aria-label="Início"><img class="vr-header-logo-img" src="Logo%20dourada%20Vit%C3%B3ria%20Ross%C3%A9s%20Nail%20Designer.png?v=20261107" alt="Vitória Rossés Nail Designer" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="vr-logo-fallback" style="display:none">VR <small>VITÓRIA ROSSES · NAIL DESIGNER</small></span></button><nav class="nav vr-nav" id="main-navigation" aria-label="Navegação principal">${[['home','Início'],['mine','Meus Cursos']].map(([p,t])=>`<button class="${page===p?'active':''}" onclick="go('${p}')">${t}</button>`).join('')}<button onclick="showCertificates()">Certificados</button><button onclick="showSupport()">Suporte</button>${isAdmin()?'<button onclick="go(\'admin\')">Administração</button>':''}<button class="mobile-logout-link" onclick="logout()" aria-label="Sair da conta">⏻ Sair da conta</button></nav><button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation" onclick="toggleMobileMenu()">☰</button><div class="right vr-actions"><button class="ghost vr-icon" title="Pesquisar cursos" aria-label="Pesquisar cursos" onclick="go('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></button><button class="ghost vr-icon" title="Notificações" aria-label="Notificações" onclick="showNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/></svg></button><button class="vr-profile" title="Meu perfil" aria-label="Meu perfil" onclick="go('profile')"><img src="vitoria.jpg" alt="Perfil"></button><button class="ghost vr-exit" onclick="logout()">Sair</button></div></header>`}
+
+function shortAccountName(name){
+ const parts=String(name||'').trim().split(/\s+/).filter(Boolean);
+ return parts.length>1?parts[0]+' '+parts[parts.length-1]:parts[0]||'Minha conta'
+}
+function avatarMarkup(u){
+ if(REMOTE_MODE&&u?.avatarUpdated)return '<img src="/api/avatar?v='+encodeURIComponent(u.avatarUpdated)+'" alt="Foto de '+esc(shortAccountName(u.name))+'">';
+ const initials=shortAccountName(u?.name).split(' ').map(w=>w.charAt(0)).join('').slice(0,2).toUpperCase();
+ return '<span class="vr-avatar-initials">'+esc(initials)+'</span>'
+}
+function closeAccountMenu(){
+ const menu=document.querySelector('.vr-account-menu'),btn=document.querySelector('.vr-account-button');
+ if(menu)menu.hidden=true;
+ if(btn)btn.setAttribute('aria-expanded','false')
+}
+function toggleAccountMenu(e){
+ e?.stopPropagation();
+ const menu=document.querySelector('.vr-account-menu'),btn=document.querySelector('.vr-account-button');
+ if(!menu||!btn)return;
+ menu.hidden=!menu.hidden;
+ btn.setAttribute('aria-expanded',String(!menu.hidden))
+}
+document.addEventListener('click',e=>{if(!e.target.closest('.vr-account-wrap'))closeAccountMenu()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeAccountMenu()});
+async function uploadAccountPhoto(input){
+ const file=input.files?.[0];if(!file)return;
+ if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024){alert('Escolha uma foto JPG, PNG ou WebP de até 10 MB.');input.value='';return}
+ try{
+  const bitmap=await createImageBitmap(file);
+  const canvas=document.createElement('canvas');canvas.width=220;canvas.height=220;
+  const ctx=canvas.getContext('2d');
+  const size=Math.min(bitmap.width,bitmap.height);
+  ctx.drawImage(bitmap,(bitmap.width-size)/2,(bitmap.height-size)/2,size,size,0,0,220,220);
+  bitmap.close?.();
+  if(!REMOTE_MODE)throw Error('O cadastro de foto está disponível no Railway.');
+  const saved=await remoteAPI('profile/avatar',{image:canvas.toDataURL('image/jpeg',0.8)});
+  if(current())current().avatarUpdated=saved.avatarUpdated;
+  await remoteRefresh()
+ }catch(e){alert('Não foi possível salvar a foto: '+e.message)}
+ finally{input.value=''}
+}
+
+function header(){return `<header class="top vr-top"><button class="vr-logo" onclick="go('home')" aria-label="Início"><img class="vr-header-logo-img" src="Logo%20dourada%20Vit%C3%B3ria%20Ross%C3%A9s%20Nail%20Designer.png?v=20261107" alt="Vitória Rossés Nail Designer" onerror="this.style.display='none';this.nextElementSibling.style.display='inline'"><span class="vr-logo-fallback" style="display:none">VR <small>VITÓRIA ROSSES · NAIL DESIGNER</small></span></button><nav class="nav vr-nav" id="main-navigation" aria-label="Navegação principal">${[['home','Início'],['mine','Meus Cursos']].map(([p,t])=>`<button class="${page===p?'active':''}" onclick="go('${p}')">${t}</button>`).join('')}<button onclick="showCertificates()">Certificados</button><button onclick="showSupport()">Suporte</button>${isAdmin()?'<button onclick="go(\'admin\')">Administração</button>':''}<button class="mobile-logout-link" onclick="logout()" aria-label="Sair da conta">⏻ Sair da conta</button></nav><button class="mobile-menu-toggle" id="mobile-menu-toggle" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation" onclick="toggleMobileMenu()">☰</button><div class="right vr-actions"><button class="ghost vr-icon" title="Pesquisar cursos" aria-label="Pesquisar cursos" onclick="go('catalog')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg></button><button class="ghost vr-icon" title="Notificações" aria-label="Notificações" onclick="showNotifications()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/></svg></button><div class="vr-account-wrap"><button class="vr-account-button" aria-label="Abrir menu da conta" aria-expanded="false" onclick="toggleAccountMenu(event)"><span class="vr-account-avatar">${avatarMarkup(current())}</span><span class="vr-account-name">${esc(shortAccountName(current()?.name))}</span><span class="vr-account-chevron">⌄</span></button><div class="vr-account-menu" hidden><div class="vr-account-heading"><b>${esc(current()?.name||'Minha conta')}</b><small>${esc(current()?.email||'')}</small></div><button onclick="closeAccountMenu();go('profile')">Meu perfil</button><button onclick="closeAccountMenu();go('mine')">Meus cursos</button><button onclick="closeAccountMenu();showCertificates()">Certificados</button><button class="vr-account-signout" onclick="closeAccountMenu();logout()">Sair da conta</button></div></div><button class="ghost vr-exit" onclick="logout()">Sair</button></div></header>`}
 async function downloadCertificate(id){
  const c=courses().find(x=>String(x.id)===String(id)),u=current(),hours=certificateHours(id);
  if(REMOTE_MODE){try{await remoteAPI('certificate/check?course='+encodeURIComponent(id))}catch(e){alert(e.message);return}}
@@ -678,7 +754,7 @@ function downloadPDF(){let c=courses().find(c=>c.id===selectedCourse),body=`VIT�
 function plans(){return `<main class="page"><div style="text-align:center"><div class="eyebrow">INVISTA NO SEU FUTURO</div><h1 class="serif" style="font-size:42px">Escolha seu plano</h1><p class="muted">Cursos, aulas e materiais para cada etapa da sua evolução.</p></div><div class="plans">${PLANS.map((p,i)=>`<div class="plan ${i===1?'featured':''}"><span class="eyebrow">${i===1?'MAIS ESCOLHIDO':'ACADEMIA PREMIUM'}</span><h2>${p.name}</h2><p class="muted">${p.access.length} cursos • ${p.months} meses de acesso</p><div class="price">R$ ${p.price},00</div><ul><li>${p.access.length} cursos liberados</li><li>Vídeos e materiais de apoio</li><li>Progresso individual</li><li>PDFs das aulas</li><li>Suporte para alunas</li></ul><button class="btn" style="width:100%" onclick="buy('${p.id}')">${current().plans.includes(p.id)?'Pacote adquirido':'Escolher pacote'}</button></div>`).join('')}</div><div class="notice">Ambiente de demonstração: nenhuma cobrança real será feita.</div></main>`}
 function buy(id){if(REMOTE_MODE)return alert('Pagamentos online ainda não estão integrados. Entre em contato com a administradora para contratar um plano.');let p=PLANS.find(p=>p.id===id);modal={title:'Finalizar compra • '+p.name,body:`<p>Valor: <strong>R$ ${p.price},00</strong></p><p class="muted">Escolha uma forma de pagamento para simular a compra.</p><div class="flex"><button class="btn" onclick="finishBuy('${id}','Pix')">Simular Pix</button><button class="btn outline" onclick="finishBuy('${id}','Cartão')">Simular cartão</button></div><p class="small muted">Sem transação financeira. Liberação somente neste navegador.</p>`};render()}
 function finishBuy(id,method){if(REMOTE_MODE)return alert('Compras automáticas ainda não estão habilitadas. Solicite a liberação à administradora.');let u=current(),p=PLANS.find(x=>x.id===id);if(!u.plans.includes(id))u.plans.push(id);state.orders.push({email:u.email,plan:id,price:p.price,method,status:'Simulado',date:new Date().toLocaleDateString('pt-BR')});save();modal={title:'✓ Acesso liberado!',body:`<p>Seu pacote ${p.name} foi liberado para testes.</p><button class="btn" onclick="go('mine')">Ir para meus cursos</button>`};render()}
-function profile(){return `<main class="page"><h1 class="serif">Minha conta</h1><div class="panel" style="max-width:600px"><p><b>Nome:</b> ${esc(current().name)}</p><p><b>E-mail:</b> ${esc(current().email)}</p><p><b>Pacotes:</b> ${current().plans.map(esc).join(', ')||'Nenhum'}</p><button class="btn outline" onclick="logout()">Sair da conta</button></div></main>`}
+function profile(){const u=current();return `<main class="page vr-profile-page"><h1 class="serif">Minha conta</h1><section class="panel vr-profile-card"><div class="vr-profile-photo">${avatarMarkup(u)}</div><div class="vr-profile-intro"><h2>${esc(shortAccountName(u?.name))}</h2><p class="muted">${esc(u?.email||'')}</p><label class="btn outline vr-photo-upload">Alterar minha foto<input type="file" accept="image/jpeg,image/png,image/webp" onchange="uploadAccountPhoto(this)" hidden></label><p class="small muted">A foto será sincronizada entre seus dispositivos.</p></div><div class="vr-profile-info"><p><b>Nome completo:</b> ${esc(u?.name||'')}</p><p><b>Pacotes:</b> ${(u?.plans||[]).map(esc).join(', ')||'Nenhum'}</p><button class="btn outline" onclick="logout()">Sair da conta</button></div></section></main>`}
 function admin(){return premiumAdmin()}
 function adminDashboard(){return `<div class="stats"><div class="stat">Alunas<strong>${state.users.filter(u=>u.role==='student').length}</strong></div><div class="stat">Vendas simuladas<strong>${state.orders.length}</strong></div><div class="stat">Cursos<strong>${courses().length}</strong></div><div class="stat">Aulas<strong>${courses().reduce((s,c)=>s+c.count,0)}</strong></div></div><h2 class="section-title">Últimas compras</h2>${adminOrders()}<h2 class="section-title">Gerenciamento rápido</h2><div class="flex"><button class="btn" onclick="adminTab='courses';render()">Gerenciar cursos</button><button class="btn outline" onclick="adminTab='permissions';render()">Controlar aulas</button></div>`}
 function adminCourses(){return `<div class="flex space"><p class="muted">Configure os cursos e bloqueie aulas individualmente.</p><button class="btn" onclick="newCourse()">+ Novo curso</button></div>${courses().map(c=>`<div class="panel" style="margin-bottom:15px"><div class="flex space"><div class="flex"><img src="${c.img}" width="65" height="65" style="object-fit:cover;border-radius:7px"><div><b>${esc(c.title)}</b><div class="muted small">${c.count} aulas</div></div></div><button class="btn tiny" onclick="selectedCourse=${c.id};adminTab='permissions';render()">Gerenciar aulas</button></div></div>`).join('')}`}
