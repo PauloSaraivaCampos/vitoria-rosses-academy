@@ -81,7 +81,7 @@ async function api(req,res,url){
   const id=Number(route.split('/').pop());
   const record=await db.query('SELECT image_webp FROM course_covers WHERE course_id=$1',[id]);
   if(!record.rowCount){res.writeHead(404,{'Cache-Control':'no-store'});return res.end()}
-  res.writeHead(200,{'Content-Type':'image/webp','Cache-Control':'public,max-age=300','X-Content-Type-Options':'nosniff'});
+  res.writeHead(200,{'Content-Type':'image/webp','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
   return res.end(record.rows[0].image_webp);
  }
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
