@@ -2,6 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
 const {Pool}=require('pg');
 const videoStorage=require('./video-storage');
+const AdmZip=require('adm-zip');
 const root=__dirname,PORT=Number(process.env.PORT)||3000;
 const db=process.env.DATABASE_URL?new Pool({connectionString:process.env.DATABASE_URL,ssl:false,max:8}):null;
 const types={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.json':'application/json; charset=utf-8','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.svg':'image/svg+xml','.pdf':'application/pdf','.ico':'image/x-icon'};
@@ -19,6 +20,7 @@ async function init(){
  await db.query('CREATE TABLE IF NOT EXISTS users(id BIGSERIAL PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT \'student\',plans JSONB NOT NULL DEFAULT \'[]\',grants JSONB NOT NULL DEFAULT \'{}\',progress JSONB NOT NULL DEFAULT \'{}\',notes JSONB NOT NULL DEFAULT \'{}\',certificate_dates JSONB NOT NULL DEFAULT \'{}\',created_at TIMESTAMPTZ NOT NULL DEFAULT now())');
  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_jpeg BYTEA');
  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ');
+ await db.query('CREATE TABLE IF NOT EXISTS course_covers(course_id INT PRIMARY KEY, image_webp BYTEA NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())');
  await db.query('CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires_at TIMESTAMPTZ NOT NULL)');
  await db.query('CREATE TABLE IF NOT EXISTS academy_data(id INT PRIMARY KEY CHECK(id=1), data JSONB NOT NULL DEFAULT \'{}\')');
  await db.query('INSERT INTO academy_data(id,data) VALUES (1,$1) ON CONFLICT (id) DO NOTHING',[JSON.stringify(blank())]);
@@ -75,8 +77,48 @@ async function api(req,res,url){
   failedLogins.delete(ip);await makeSession(res,u.rows[0]);return ok(res,{user:publicUser(u.rows[0])})
  }
  if(route==='/api/logout'&&method==='POST'){const u=await identify(req);if(u){const t=(req.headers.cookie||'').match(/vra_sid=([a-f0-9]{64})/);if(t)await db.query('DELETE FROM sessions WHERE token_hash=$1',[tokenHash(t[1])])}res.setHeader('Set-Cookie','vra_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');return ok(res,{ok:true})}
+ if(/^\/api\/course-cover\/[1-8]$/.test(route)&&method==='GET'){
+  const id=Number(route.split('/').pop());
+  const record=await db.query('SELECT image_webp FROM course_covers WHERE course_id=$1',[id]);
+  if(!record.rowCount){res.writeHead(404,{'Cache-Control':'no-store'});return res.end()}
+  res.writeHead(200,{'Content-Type':'image/webp','Cache-Control':'public,max-age=300','X-Content-Type-Options':'nosniff'});
+  return res.end(record.rows[0].image_webp);
+ }
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
  if(route==='/api/session'&&method==='GET')return ok(res,{user:publicUser(user)});
+ if(route==='/api/admin/covers/import'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Somente a administradora pode atualizar as capas',403);
+  const MAX_ARCHIVE=5*1024*1024,chunks=[];let size=0;
+  try{
+   for await(const chunk of req){size+=chunk.length;if(size>MAX_ARCHIVE)return fail(res,'Arquivo ZIP maior que 5 MB',413);chunks.push(chunk)}
+   const archive=new AdmZip(Buffer.concat(chunks)),entries=archive.getEntries();
+   const covers=[
+    'curso-01-fibra-de-vidro.webp','curso-02-blindagem.webp','curso-03-esmaltacao-em-gel.webp',
+    'curso-04-alongamento-em-gel.webp','curso-05-nail-art.webp','curso-06-manutencao.webp',
+    'curso-07-biosseguranca.webp','curso-08-esmaltacao-tradicional.webp'
+   ];
+   const assets=[];
+   for(let i=0;i<covers.length;i++){
+    const entry=entries.find(e=>!e.isDirectory&&e.entryName.split('/').pop()===covers[i]);
+    if(!entry) return fail(res,'Capa não encontrada: '+covers[i],400);
+    if(entry.header.size>600000)return fail(res,'Imagem muito grande: '+covers[i],413);
+    const img=entry.getData();
+    if(img.length<1000||img.length>600000||img.toString('ascii',0,4)!=='RIFF'||img.toString('ascii',8,12)!=='WEBP')return fail(res,'Formato inválido: '+covers[i],400);
+    assets.push(img)
+   }
+   const client=await db.connect();
+   try{
+    await client.query('BEGIN');
+    for(let i=0;i<assets.length;i++)await client.query(
+     'INSERT INTO course_covers(course_id,image_webp,updated_at) VALUES($1,$2,now()) ON CONFLICT(course_id) DO UPDATE SET image_webp=EXCLUDED.image_webp,updated_at=now()',
+     [i+1,assets[i]]
+    );
+    await client.query('COMMIT');
+   }catch(e){await client.query('ROLLBACK');throw e}finally{client.release()}
+   return ok(res,{ok:true,imported:covers.length,message:'As oito capas foram atualizadas com sucesso'});
+  }catch(e){console.error('Erro importando capas',e);return fail(res,'Não foi possível importar as capas. Envie o pacote ZIP original.',400)}
+ }
+
  if(route==='/api/avatar'&&method==='GET'){
   const requested=safeStr(url.searchParams.get('email')||user.email,255).toLowerCase();
   if(requested!==user.email&&user.role!=='admin')return fail(res,'Acesso não autorizado',403);
