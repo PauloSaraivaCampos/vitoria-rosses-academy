@@ -17,6 +17,8 @@ async function readBody(req){let value='';for await(const x of req){value+=x;if(
 async function init(){
  if(!db)return;
  await db.query('CREATE TABLE IF NOT EXISTS users(id BIGSERIAL PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT \'student\',plans JSONB NOT NULL DEFAULT \'[]\',grants JSONB NOT NULL DEFAULT \'{}\',progress JSONB NOT NULL DEFAULT \'{}\',notes JSONB NOT NULL DEFAULT \'{}\',certificate_dates JSONB NOT NULL DEFAULT \'{}\',created_at TIMESTAMPTZ NOT NULL DEFAULT now())');
+ await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_jpeg BYTEA');
+ await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ');
  await db.query('CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires_at TIMESTAMPTZ NOT NULL)');
  await db.query('CREATE TABLE IF NOT EXISTS academy_data(id INT PRIMARY KEY CHECK(id=1), data JSONB NOT NULL DEFAULT \'{}\')');
  await db.query('INSERT INTO academy_data(id,data) VALUES (1,$1) ON CONFLICT (id) DO NOTHING',[JSON.stringify(blank())]);
@@ -24,7 +26,7 @@ async function init(){
 }
 async function identify(req){if(!db)return null;const cookies=Object.fromEntries((req.headers.cookie||'').split(';').map(x=>x.trim().split('=').map(decodeURIComponent)));const token=cookies.vra_sid;if(!token||! /^[a-f0-9]{64}$/.test(token))return null;const r=await db.query('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);return r.rows[0]||null}
 async function makeSession(res,user){const token=crypto.randomBytes(32).toString('hex');await db.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '14 days')",[tokenHash(token),user.id]);res.setHeader('Set-Cookie','vra_sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=1209600')}
-function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.plans||[],grants:u.grants||{},progress:u.progress||{},notes:u.notes||{},certificateDates:u.certificate_dates||{}}}
+function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.plans||[],grants:u.grants||{},progress:u.progress||{},notes:u.notes||{},certificateDates:u.certificate_dates||{},avatarUpdated:u.avatar_updated_at||null}}
 const asObj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
 const asArr=v=>Array.isArray(v)?v:[];
 const safeStr=(v,max=1000)=>typeof v==='string'?v.slice(0,max):'';
@@ -75,6 +77,23 @@ async function api(req,res,url){
  if(route==='/api/logout'&&method==='POST'){const u=await identify(req);if(u){const t=(req.headers.cookie||'').match(/vra_sid=([a-f0-9]{64})/);if(t)await db.query('DELETE FROM sessions WHERE token_hash=$1',[tokenHash(t[1])])}res.setHeader('Set-Cookie','vra_sid=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0');return ok(res,{ok:true})}
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
  if(route==='/api/session'&&method==='GET')return ok(res,{user:publicUser(user)});
+ if(route==='/api/avatar'&&method==='GET'){
+  const requested=safeStr(url.searchParams.get('email')||user.email,255).toLowerCase();
+  if(requested!==user.email&&user.role!=='admin')return fail(res,'Acesso não autorizado',403);
+  const result=await db.query('SELECT avatar_jpeg FROM users WHERE email=$1',[requested]);
+  if(!result.rowCount||!result.rows[0].avatar_jpeg){res.writeHead(404,{'Cache-Control':'no-store'});return res.end()}
+  res.writeHead(200,{'Content-Type':'image/jpeg','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});
+  return res.end(result.rows[0].avatar_jpeg);
+ }
+ if(route==='/api/profile/avatar'&&method==='POST'){
+  const x=await readBody(req),raw=x?.image;
+  if(typeof raw!=='string'||!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(raw)||raw.length>225000)return fail(res,'Envie uma foto JPEG válida de até 160 KB',400);
+  const bytes=Buffer.from(raw.slice('data:image/jpeg;base64,'.length),'base64');
+  if(bytes.length<150||bytes.length>160000||bytes[0]!==0xff||bytes[1]!==0xd8||bytes[2]!==0xff||bytes[bytes.length-2]!==0xff||bytes[bytes.length-1]!==0xd9)return fail(res,'Arquivo de foto inválido',400);
+  const result=await db.query('UPDATE users SET avatar_jpeg=$1, avatar_updated_at=now() WHERE id=$2 RETURNING avatar_updated_at',[bytes,user.id]);
+  return ok(res,{ok:true,avatarUpdated:result.rows[0].avatar_updated_at});
+ }
+
 
  const isCourseAllowed=(u,id)=>{if(u.role==='admin')return true;const grant=asObj(u.grants)[id];if(grant===false)return false;return grant===true||asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)))};
  const isLessonUnlocked=async(u,id,n)=>{if(!isCourseAllowed(u,id))return false;const result=await db.query('SELECT data FROM academy_data WHERE id=1');const locks=asObj(result.rows[0]?.data?.globalLocks);return locks[id+':'+n]!==true&&asObj(u.grants)[id+':'+n]!==false};
