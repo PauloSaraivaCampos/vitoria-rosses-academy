@@ -471,6 +471,16 @@ img,video,iframe{max-width:100%}
  .vr-admin-app .premium-admin{min-height:calc(100dvh - 62px)}
  .vr-admin-app .premium-side{top:62px}
 }
+
+/* Ícones SVG consistentes para navegação administrativa */
+.premium-side-link{display:flex;align-items:center;gap:13px;min-height:46px;transition:background-color .18s,border-color .18s,color .18s}
+.premium-side-link .premium-menu-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 23px;width:23px;height:23px;color:#ddb57a}
+.premium-side-link .premium-menu-icon svg{width:19px;height:19px;display:block;overflow:visible;transition:transform .18s}
+.premium-side-link .premium-menu-label{min-width:0;flex:1;font-size:13px;text-align:left;color:inherit}
+.premium-side-link:hover .premium-menu-icon svg{transform:translateY(-1px)}
+.premium-side-link.active .premium-menu-icon{color:#ffe0a9}
+.premium-side-link.active{box-shadow:inset 3px 0 0 #d2a76a}
+@media(max-width:700px){.premium-side-link{gap:9px;min-height:43px}.premium-side-link .premium-menu-icon{flex-basis:20px;width:20px;height:20px}.premium-side-link .premium-menu-icon svg{width:18px;height:18px}}
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:(location.hostname.endsWith('github.io')?'nails'+c[1]+'.jpg':'/api/course-cover/'+(i+1)),count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
@@ -861,12 +871,27 @@ async function premiumSetPlan(email,plan){if(REMOTE_MODE){try{await remoteAPI('a
 function adminOrders(){return `<div class="panel"><table class="table"><thead><tr><th>Aluna</th><th>Pacote</th><th>Valor</th><th>Forma</th><th>Status</th></tr></thead><tbody>${state.orders.map(o=>`<tr><td>${esc(o.email)}</td><td>${esc(o.plan)}</td><td>R$ ${o.price},00</td><td>${esc(o.method)}</td><td><span class="pill">${esc(o.status)}</span></td></tr>`).join('')||'<tr><td colspan="5">Nenhuma compra simulada ainda.</td></tr>'}</tbody></table></div>`}
 function adminSettings(){return `<div class="panel"><h3>Configurações da academia</h3><label>Nome público<input class="field" id="brand" value="${esc(state.settings.brand||'Vitória Rosses Academy')}"></label><label>Mensagem de boas-vindas<textarea class="field" id="welcome">${esc(state.settings.welcome||'Elevando a sua autoestima')}</textarea></label><button class="btn" onclick="state.settings.brand=document.getElementById('brand').value;state.settings.welcome=document.getElementById('welcome').value;save();alert('Configurações salvas para testes')">Salvar</button><div class="notice">Integração real de pagamentos, e-mails, certificados e upload de vídeos requer servidor e credenciais de produção.</div><button class="btn outline" onclick="if(confirm('Apagar os dados de teste deste navegador?')){localStorage.removeItem(KEY);sessionStorage.removeItem('vra_session');location.reload()}">Restaurar dados de demonstração</button></div>`}
 
+function premiumAdminIcon(name){
+ const paths={
+ 'layout-dashboard':'<rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/>',
+ 'users-round':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+ 'book-open':'<path d="M12 7v14"/><path d="M3 18V4a1 1 0 0 1 1-1h4a4 4 0 0 1 4 4 4 4 0 0 1 4-4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4a4 4 0 0 0-4 2 4 4 0 0 0-4-2H4a1 1 0 0 1-1-1Z"/>',
+ 'play-circle':'<circle cx="12" cy="12" r="10"/><path d="m10 8 6 4-6 4z" stroke-linejoin="round"/>',
+ 'award':'<circle cx="12" cy="8" r="6"/><path d="m8.21 13.89-1 8 4.79-2.79 4.79 2.79-1-8"/>',
+ 'wallet-cards':'<rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M7 15h3"/>',
+ 'bell':'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 9h18c0-1-3-2-3-9M10 21h4"/>',
+ 'shield-check':'<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
+ 'shopping-bag':'<path d="M4 8h16l-1 13H5L4 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/>',
+ 'settings':'<path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 2l.07.07-2.76 2.76-.07-.07a1.8 1.8 0 0 0-2-.36l-.09.04V22h-4v-2.56l-.09-.04a1.8 1.8 0 0 0-2 .36l-.07.07-2.76-2.76.07-.07a1.8 1.8 0 0 0 .36-2L6.4 15H4v-4h2.4l.04-.09a1.8 1.8 0 0 0-.36-2l-.07-.07 2.76-2.76.07.07a1.8 1.8 0 0 0 2 .36l.09-.04V4h4v2.56l.09.04a1.8 1.8 0 0 0 2-.36l.07-.07 2.76 2.76-.07.07a1.8 1.8 0 0 0-.36 2l.04.09H22v4h-2.56Z" transform="translate(-1 -1) scale(1.08)"/>'
+ };
+ return '<svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(paths[name]||paths['layout-dashboard'])+'</svg>'
+}
 function premiumAdmin(){
- const items=[['dashboard','◈','Visão geral'],['students','♙','Alunas'],['courses','▣','Cursos'],['videos','▶','Vídeos e aulas'],['certificates','✦','Certificados'],['payments','▤','Mensalidades'],['notifications','♧','Notificações'],['permissions','♢','Acessos'],['orders','◉','Vendas'],['settings','⚙','Configurações']];
+ const items=[['dashboard','layout-dashboard','Visão geral'],['students','users-round','Alunas'],['courses','book-open','Cursos'],['videos','play-circle','Vídeos e aulas'],['certificates','award','Certificados'],['payments','wallet-cards','Mensalidades'],['notifications','bell','Notificações'],['permissions','shield-check','Acessos'],['orders','shopping-bag','Vendas'],['settings','settings','Configurações']];
  const titles={dashboard:'Área do Administrador',students:'Alunas cadastradas',courses:'Cursos e módulos',videos:'Vídeos e aulas',certificates:'Certificados',payments:'Mensalidades',notifications:'Notificações',permissions:'Controle de acessos',orders:'Vendas',settings:'Configurações'};
  const view={dashboard:premiumDashboard,students:adminStudents,courses:adminCourses,videos:premiumVideos,certificates:premiumCertificates,payments:premiumPayments,notifications:premiumNotifications,permissions:adminPermissions,orders:adminOrders,settings:adminSettings};
  return '<div class="premium-admin"><aside class="premium-side"><div class="premium-side-brand"><img src="Logo%20dourada%20Vit%C3%B3ria%20Ross%C3%A9s%20Nail%20Designer.png" alt="Vitória Rossés"></div><div class="premium-menu-caption">ADMINISTRAÇÃO</div>'+
- items.map(function(item){return '<button class="premium-side-link '+(adminTab===item[0]?'active':'')+'" onclick="adminTab=\''+item[0]+'\';render()"><span>'+item[1]+'</span>'+item[2]+'</button>'}).join('')+
+ items.map(function(item){return '<button class="premium-side-link '+(adminTab===item[0]?'active':'')+'" onclick="adminTab=\''+item[0]+'\';render()"><span class="premium-menu-icon">'+premiumAdminIcon(item[1])+'</span><span class="premium-menu-label">'+item[2]+'</span></button>'}).join('')+
  '<div class="premium-side-foot">Vitória Rossés Academy<small>Área de administração</small></div></aside><main class="premium-main"><div class="premium-page-head"><div><span class="eyebrow">PAINEL DE GESTÃO</span><h1>'+titles[adminTab]+'</h1><p>Gestão dos cursos e das alunas em um só lugar.</p></div><span class="premium-demo-label">' + (REMOTE_MODE?'Dados conectados ao Railway':'Ambiente de demonstração') + '</span></div>'+((view[adminTab]||premiumDashboard)())+'</main></div>';
 }
 function premiumDashboard(){
