@@ -744,9 +744,9 @@ async function createPersonalCertificatePDF(id,{demo=false}={}){
  const iso=demo?new Date().toISOString().slice(0,10):u?.certificateDates?.[id]||new Date().toISOString().slice(0,10);
  const parts=iso.split('-'),date=parts[2]+'/'+parts[1]+'/'+parts[0];
  draw(name,h*.456,w*.024,w*.49);
- draw(date,h*.148,w*.016,w*.20,regular,gold,w*.257);
+ draw(date,h*.187,w*.016,w*.20,regular,gold,w*.257);
  const hours=certificateHours(id);
- draw(hours?hours+' horas':'A definir',h*.148,w*.016,w*.18,regular,gold,w*.497);
+ draw(hours?hours+' horas':'A definir',h*.187,w*.016,w*.18,regular,gold,w*.497);
  let signatureStatus='not-configured';
  if(state.certificateSignature){
   const source=state.certificateSignature;
@@ -788,16 +788,16 @@ async function createPersonalCertificatePDF(id,{demo=false}={}){
    const image=/\.jpe?g$/i.test(source)?await pdf.embedJpg(prepared):await pdf.embedPng(prepared);
    const maxW=w*.195,maxH=h*.083,scale=Math.min(maxW/image.width,maxH/image.height);
    const signedWidth=image.width*scale,signedHeight=image.height*scale;
-   const signatureCenterX=w*.79;
-   const baselineY=h*.17;
-   page.drawImage(image,{x:signatureCenterX-signedWidth/2,y:baselineY+Math.max(0,h*.072-signedHeight)/2,width:signedWidth,height:signedHeight});
+   const signatureCenterX=w*.746;
+   const baselineY=h*.175;
+   page.drawImage(image,{x:signatureCenterX-signedWidth/2,y:baselineY+Math.max(0,h*.075-signedHeight)/2,width:signedWidth,height:signedHeight});
    signatureStatus='loaded'
   }
  }
  if(demo){
   // Preview is visibly marked as a sample to prevent accidental use as a completion certificate.
-  page.drawRectangle({x:w*.32,y:h*.74,width:w*.36,height:h*.06,color:lib.rgb(.12,.08,.12),opacity:.86});
-  draw('PREVIA - SEM VALIDADE',h*.757,w*.019,w*.34,regular,lib.rgb(.97,.8,.57));
+  page.drawRectangle({x:w*.69,y:h*.695,width:w*.265,height:h*.042,color:lib.rgb(.12,.08,.12),opacity:.87});
+  draw('PREVIA - SEM VALIDADE',h*.706,w*.013,w*.245,regular,lib.rgb(.97,.8,.57),w*.822);
  }
  return {bytes:await pdf.save(),signatureStatus}
 }
