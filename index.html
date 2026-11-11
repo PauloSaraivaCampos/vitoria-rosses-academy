@@ -596,6 +596,19 @@ img,video,iframe{max-width:100%}
 .vr-shop-bottom p{margin:0;color:#cbb5bb;font-size:13px}
 @media(max-width:700px){.vr-shop-banner{padding:22px 17px;margin-top:0}.vr-shop-banner-mark{display:none}.vr-shop-banner-actions .btn{flex:1 1 175px}.vr-shop-search{flex:1 1 100%}.vr-shop-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}.vr-shop-course-body{padding:12px;gap:9px}.vr-shop-course-body h3{font-size:14px;min-height:38px}.vr-shop-course-body strong{font-size:16px}.vr-shop-course-body .btn{font-size:12px;padding:10px 5px}.vr-shop-course-body p{font-size:11px;min-height:47px}}
 @media(max-width:370px){.vr-shop-grid{grid-template-columns:1fr}.vr-shop-course-body h3{min-height:0}.vr-shop-course-body p{min-height:0}}
+
+/* Importação de assinatura oficial nos certificados */
+.vr-signature-section{padding:18px;border:1px solid #765249;background:linear-gradient(135deg,#2c1b28,#161019);border-radius:12px;margin:18px 0}
+.vr-signature-heading{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.vr-signature-heading strong{font-family:Georgia,serif;color:#ebc995;font-size:19px}
+.vr-signature-heading span{font-size:11px;color:#c8a6a2}
+.vr-signature-preview{display:flex;justify-content:center;align-items:center;min-height:125px;border:1px dashed #956c5e;border-radius:9px;background:repeating-conic-gradient(#eee 0% 25%,#d8d8d8 0% 50%) 50%/20px 20px;margin-bottom:13px}
+.vr-signature-preview img{display:block;max-width:95%;max-height:110px;object-fit:contain}
+.vr-signature-preview p{padding:14px;border-radius:5px;color:#4a3841;background:#f7f3ef;font-size:12px}
+.vr-signature-upload{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;margin-bottom:9px}
+.vr-signature-section>small{display:block;font-size:11px;line-height:1.6}
+.vr-cert-hours-title{font:21px Georgia,serif;color:#e8c695;margin:22px 0 12px}
+.vr-cert-save{width:100%;margin-top:15px;min-height:46px}
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:(location.hostname.endsWith('github.io')?'nails'+c[1]+'.jpg':'/api/course-cover/'+(i+1)),count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
@@ -730,9 +743,17 @@ async function downloadCertificate(id){
    text('Conclusao: '+date+'     Carga horaria: '+hours+' horas',h*.19,16,w*.85,regular);
   }
   if(state.certificateSignature){
-   const path=state.certificateSignature;
-   if(!/^https?:\/\//i.test(path)&&!path.includes('..')){
-    try{const resp=await fetch('./'+encodeURI(path));if(resp.ok){const bytes=await resp.arrayBuffer(),img=path.toLowerCase().endsWith('.jpg')||path.toLowerCase().endsWith('.jpeg')?await pdf.embedJpg(bytes):await pdf.embedPng(bytes);const targetW=w*.17,ratio=img.height/img.width;page.drawImage(img,{x:w*.69,y:h*.145,width:targetW,height:targetW*ratio})}}catch(e){console.warn('Assinatura não carregada',e)}
+   const source=state.certificateSignature;
+   if(!/^https?:\/\//i.test(source)&&!source.includes('..')){
+    try{
+     const path=source.startsWith('/api/')?source:'./'+encodeURI(source);
+     const resp=await fetch(path,{credentials:'same-origin',cache:'no-store'});
+     if(!resp.ok)throw Error('Arquivo não localizado');
+     const bytes=await resp.arrayBuffer();
+     const img=/\.jpe?g$/i.test(source)?await pdf.embedJpg(bytes):await pdf.embedPng(bytes);
+     const maxW=w*.2,maxH=h*.10,scale=Math.min(maxW/img.width,maxH/img.height);
+     page.drawImage(img,{x:w*.69,y:h*.115,width:img.width*scale,height:img.height*scale})
+    }catch(e){console.warn('Assinatura não carregada',e)}
    }
   }
   const bytes=await pdf.save(),url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'})),link=document.createElement('a');link.href=url;link.download='Certificado_'+String(c.title).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]+/g,'_')+'.pdf';link.click();setTimeout(()=>URL.revokeObjectURL(url),60000)
@@ -749,14 +770,59 @@ function previewCertificate(id){const c=courses().find(x=>String(x.id)===String(
 function certificateHours(id){return Number(state.certificateHours?.[id]||0)}
 function configureCertificates(){
  if(!isAdmin())return;
- modal={title:'Configurar certificados',body:`<p class="muted">Informe a carga horária oficial de cada curso. A assinatura digital poderá ser cadastrada como uma imagem PNG no repositório.</p>${courses().map(c=>`<label class="cert-config-label">${esc(c.title)}<input class="field" type="number" min="1" step="1" id="cert-hours-${c.id}" value="${certificateHours(c.id)||''}" placeholder="Carga horária em horas"></label>`).join('')}<label class="cert-config-label">Arquivo PNG da assinatura da Vitória<input class="field" id="cert-signature" value="${esc(state.certificateSignature||'')}" placeholder="assinatura-vitoria.png"></label><button class="btn" onclick="saveCertificateConfig()">Salvar configuração</button>`};render()
+ const signature=state.certificateSignature||'';
+ modal={title:'Configurar certificados',body:`<p class="muted">Defina as cargas horárias e importe a assinatura digital em PNG, preferencialmente com fundo transparente. Ela será aplicada nos PDFs emitidos às alunas.</p>
+ <div class="vr-signature-section"><div class="vr-signature-heading"><strong>Assinatura da Vitória Rossés</strong><span>PNG • fundo transparente</span></div>
+ <div class="vr-signature-preview"><img id="cert-signature-preview" src="${signature.startsWith('/api/')?signature+'?t='+Date.now():signature?'./'+encodeURI(signature):''}" alt="Prévia da assinatura" style="${signature?'':'display:none'}"><p id="cert-signature-placeholder" style="${signature?'display:none':''}">Nenhuma assinatura cadastrada</p></div>
+ <label class="btn outline vr-signature-upload">Importar arquivo PNG<input type="file" id="cert-signature-file" accept=".png,image/png" hidden onchange="previewSignatureUpload(this)"></label>
+ <small id="cert-signature-filename" class="muted">Selecione uma imagem PNG. O arquivo será ajustado para até 900 × 400 pixels.</small>
+ </div>
+ <h3 class="vr-cert-hours-title">Carga horária dos cursos</h3>
+ ${courses().map(c=>`<label class="cert-config-label">${esc(c.title)}<input class="field" type="number" min="1" step="1" id="cert-hours-${c.id}" value="${certificateHours(c.id)||''}" placeholder="Carga horária em horas"></label>`).join('')}
+ <button class="btn vr-cert-save" id="cert-save-button" onclick="saveCertificateConfig()">Salvar configuração</button>`};
+ render()
 }
-function saveCertificateConfig(){
+let certificateSignaturePending='';
+async function previewSignatureUpload(input){
+ const file=input.files?.[0];certificateSignaturePending='';
+ if(!file)return;
+ if(file.type!=='image/png'||file.size>5*1024*1024){alert('Selecione um PNG de até 5 MB.');input.value='';return}
+ try{
+  const image=await createImageBitmap(file);
+  const scale=Math.min(1,900/image.width,400/image.height);
+  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+  canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);image.close?.();
+  let url=canvas.toDataURL('image/png');
+  if(url.length>220000){alert('Imagem muito detalhada. Use um PNG com menos detalhes ou tamanho menor.');return}
+  certificateSignaturePending=url;
+  const preview=document.getElementById('cert-signature-preview');
+  if(preview){preview.src=url;preview.style.display='block'}
+  const placeholder=document.getElementById('cert-signature-placeholder');if(placeholder)placeholder.style.display='none';
+  const filename=document.getElementById('cert-signature-filename');if(filename)filename.textContent='Arquivo selecionado: '+file.name+' — pronto para salvar';
+ }catch(e){alert('Não foi possível abrir a assinatura: '+e.message)}
+}
+async function saveCertificateConfig(){
  if(!isAdmin())return;
- state.certificateHours??={};
- courses().forEach(c=>{const v=Number(document.getElementById('cert-hours-'+c.id)?.value);if(v>0)state.certificateHours[c.id]=v;else delete state.certificateHours[c.id]});
- state.certificateSignature=document.getElementById('cert-signature')?.value.trim()||'';
- save();showCertificates()
+ const hours={};for(const c of courses()){
+  const raw=document.getElementById('cert-hours-'+c.id)?.value.trim()||'';
+  if(raw&&(!Number.isInteger(Number(raw))||Number(raw)<1||Number(raw)>1000))return alert('Carga horária inválida para '+c.title);
+  if(raw)hours[c.id]=Number(raw);
+ }
+ const button=document.getElementById('cert-save-button');
+ if(button){button.disabled=true;button.textContent='Salvando...'}
+ try{
+  if(certificateSignaturePending){
+   if(!REMOTE_MODE)throw Error('A importação da assinatura está disponível na versão Railway.');
+   await remoteAPI('admin/certificate/signature',{image:certificateSignaturePending});
+   state.certificateSignature='/api/certificate/signature';
+   certificateSignaturePending='';
+  }
+  state.certificateHours=hours;
+  await save();
+  modal=null;adminTab='certificates';
+  if(REMOTE_MODE)await remoteRefresh();else render();
+  alert('Certificados configurados com sucesso.')
+ }catch(e){alert('Não foi possível salvar a configuração: '+e.message);if(button){button.disabled=false;button.textContent='Salvar configuração'}}
 }
 function showSupport(){modal={title:'Suporte',body:'<p class="muted">Em breve você poderá entrar em contato com a equipe da Vitória Rosses Academy por aqui.</p><button class="btn" onclick="closeModal()">Entendi</button>'};render()}
 function showNotifications(){premiumStudentNotices()}
