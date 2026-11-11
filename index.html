@@ -755,10 +755,42 @@ async function createPersonalCertificatePDF(id,{demo=false}={}){
    const signatureResp=await fetch(path,{credentials:'same-origin',cache:'no-store'});
    if(!signatureResp.ok)throw Error('Assinatura configurada, mas não encontrada no servidor. Importe novamente o PNG.');
    const bytes=await signatureResp.arrayBuffer();
-   const image=/\.jpe?g$/i.test(source)?await pdf.embedJpg(bytes):await pdf.embedPng(bytes);
-   const maxW=w*.20,maxH=h*.10,scale=Math.min(maxW/image.width,maxH/image.height);
-   // Horizontal center above the ASSINATURA caption; do not cover its baseline.
-   page.drawImage(image,{x:w*.79-(image.width*scale/2),y:h*.166,width:image.width*scale,height:image.height*scale});
+   // Remove transparent margins from the PNG before centering the visible handwriting.
+   let prepared=bytes;
+   if(!/\.jpe?g$/i.test(source)){
+    try{
+     const bitmap=await createImageBitmap(new Blob([bytes],{type:'image/png'}));
+     const original=document.createElement('canvas');
+     original.width=bitmap.width;original.height=bitmap.height;
+     const context=original.getContext('2d',{willReadFrequently:true});
+     context.drawImage(bitmap,0,0);
+     bitmap.close?.();
+     const rgba=context.getImageData(0,0,original.width,original.height);
+     let left=original.width,top=original.height,right=-1,bottom=-1;
+     for(let yy=0;yy<original.height;yy++)for(let xx=0;xx<original.width;xx++){
+      const pos=(yy*original.width+xx)*4;
+      if(rgba.data[pos+3]>26){
+       left=Math.min(left,xx);top=Math.min(top,yy);
+       right=Math.max(right,xx);bottom=Math.max(bottom,yy)
+      }
+     }
+     if(right>=left&&bottom>=top){
+      const margin=Math.max(3,Math.round(Math.min(original.width,original.height)*.012));
+      left=Math.max(0,left-margin);top=Math.max(0,top-margin);
+      right=Math.min(original.width-1,right+margin);bottom=Math.min(original.height-1,bottom+margin);
+      const crop=document.createElement('canvas');
+      crop.width=right-left+1;crop.height=bottom-top+1;
+      crop.getContext('2d').drawImage(original,left,top,crop.width,crop.height,0,0,crop.width,crop.height);
+      prepared=await new Promise((resolve,reject)=>crop.toBlob(async blob=>blob?resolve(await blob.arrayBuffer()):reject(Error('Falha ao preparar assinatura')),'image/png'))
+     }
+    }catch(error){console.warn('Não foi possível ajustar margens transparentes da assinatura',error)}
+   }
+   const image=/\.jpe?g$/i.test(source)?await pdf.embedJpg(prepared):await pdf.embedPng(prepared);
+   const maxW=w*.195,maxH=h*.083,scale=Math.min(maxW/image.width,maxH/image.height);
+   const signedWidth=image.width*scale,signedHeight=image.height*scale;
+   const signatureCenterX=w*.79;
+   const baselineY=h*.17;
+   page.drawImage(image,{x:signatureCenterX-signedWidth/2,y:baselineY+Math.max(0,h*.072-signedHeight)/2,width:signedWidth,height:signedHeight});
    signatureStatus='loaded'
   }
  }
