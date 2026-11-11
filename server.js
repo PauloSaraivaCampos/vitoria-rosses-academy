@@ -14,7 +14,7 @@ const validPassword=p=>typeof p==='string'&&p.length>=10&&p.length<=256;
 const validEmail=e=>typeof e==='string'&&/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)&&e.length<255;
 function hashPassword(password){const salt=crypto.randomBytes(16).toString('hex');return salt+':'+crypto.scryptSync(password,salt,64).toString('hex')}
 function passwordValid(password,stored){try{const [salt,hex]=stored.split(':');const expected=Buffer.from(hex,'hex'),actual=crypto.scryptSync(password,salt,expected.length);return crypto.timingSafeEqual(expected,actual)}catch{return false}}
-async function readBody(req){let value='';for await(const x of req){value+=x;if(value.length>300000)throw Error('Requisição muito grande')}return JSON.parse(value||'{}')}
+async function readBody(req,maxLength=300000){let value='';for await(const x of req){value+=x;if(value.length>maxLength)throw Error('Requisição muito grande')}return JSON.parse(value||'{}')}
 async function init(){
  if(!db)return;
  await db.query('CREATE TABLE IF NOT EXISTS users(id BIGSERIAL PRIMARY KEY,name TEXT NOT NULL,email TEXT UNIQUE NOT NULL,password_hash TEXT NOT NULL,role TEXT NOT NULL DEFAULT \'student\',plans JSONB NOT NULL DEFAULT \'[]\',grants JSONB NOT NULL DEFAULT \'{}\',progress JSONB NOT NULL DEFAULT \'{}\',notes JSONB NOT NULL DEFAULT \'{}\',certificate_dates JSONB NOT NULL DEFAULT \'{}\',created_at TIMESTAMPTZ NOT NULL DEFAULT now())');
@@ -126,10 +126,10 @@ async function api(req,res,url){
  }
  if(route==='/api/admin/certificate/signature'&&method==='POST'){
   if(user.role!=='admin')return fail(res,'Acesso restrito à administração',403);
-  const x=await readBody(req),data=x?.image;
-  if(typeof data!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(data)||data.length>220000)return fail(res,'Selecione um PNG válido de até 150 KB',400);
+  const x=await readBody(req,6*1024*1024),data=x?.image;
+  if(typeof data!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(data)||data.length>5.6*1024*1024)return fail(res,'Selecione um PNG válido de até 4 MB',400);
   const bytes=Buffer.from(data.slice('data:image/png;base64,'.length),'base64');
-  if(bytes.length<70||bytes.length>150000||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')return fail(res,'Arquivo PNG inválido',400);
+  if(bytes.length<70||bytes.length>4*1024*1024||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')return fail(res,'Arquivo PNG inválido ou superior a 4 MB',400);
   const w=bytes.readUInt32BE(16),h=bytes.readUInt32BE(20);
   if(w<50||h<20||w>1600||h>900)return fail(res,'Dimensões de assinatura não permitidas',400);
   await db.query('INSERT INTO academy_signature(id,image_png,updated_at) VALUES(1,$1,now()) ON CONFLICT(id) DO UPDATE SET image_png=EXCLUDED.image_png,updated_at=now()',[bytes]);
