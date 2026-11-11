@@ -21,6 +21,7 @@ async function init(){
  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_jpeg BYTEA');
  await db.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ');
  await db.query('CREATE TABLE IF NOT EXISTS course_covers(course_id INT PRIMARY KEY, image_webp BYTEA NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT now())');
+ await db.query('CREATE TABLE IF NOT EXISTS academy_signature(id INT PRIMARY KEY CHECK(id=1),image_png BYTEA NOT NULL,updated_at TIMESTAMPTZ NOT NULL DEFAULT now())');
  await db.query('CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires_at TIMESTAMPTZ NOT NULL)');
  await db.query('CREATE TABLE IF NOT EXISTS academy_data(id INT PRIMARY KEY CHECK(id=1), data JSONB NOT NULL DEFAULT \'{}\')');
  await db.query('INSERT INTO academy_data(id,data) VALUES (1,$1) ON CONFLICT (id) DO NOTHING',[JSON.stringify(blank())]);
@@ -117,6 +118,24 @@ async function api(req,res,url){
  }
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
  if(route==='/api/session'&&method==='GET')return ok(res,{user:publicUser(user)});
+ if(route==='/api/certificate/signature'&&method==='GET'){
+  const record=await db.query('SELECT image_png FROM academy_signature WHERE id=1');
+  if(!record.rowCount){res.writeHead(404,{'Cache-Control':'no-store'});return res.end()}
+  res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'private, no-store','X-Content-Type-Options':'nosniff'});
+  return res.end(record.rows[0].image_png)
+ }
+ if(route==='/api/admin/certificate/signature'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Acesso restrito à administração',403);
+  const x=await readBody(req),data=x?.image;
+  if(typeof data!=='string'||!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(data)||data.length>220000)return fail(res,'Selecione um PNG válido de até 150 KB',400);
+  const bytes=Buffer.from(data.slice('data:image/png;base64,'.length),'base64');
+  if(bytes.length<70||bytes.length>150000||bytes.subarray(0,8).toString('hex')!=='89504e470d0a1a0a')return fail(res,'Arquivo PNG inválido',400);
+  const w=bytes.readUInt32BE(16),h=bytes.readUInt32BE(20);
+  if(w<50||h<20||w>1600||h>900)return fail(res,'Dimensões de assinatura não permitidas',400);
+  await db.query('INSERT INTO academy_signature(id,image_png,updated_at) VALUES(1,$1,now()) ON CONFLICT(id) DO UPDATE SET image_png=EXCLUDED.image_png,updated_at=now()',[bytes]);
+  return ok(res,{ok:true,path:'/api/certificate/signature'})
+ }
+
  if(route==='/api/purchases/request'&&method==='POST'){
   if(user.role!=='student')return fail(res,'Somente alunas podem solicitar acesso',403);
   const x=await readBody(req),type=x.type,code=String(x.code||'');
