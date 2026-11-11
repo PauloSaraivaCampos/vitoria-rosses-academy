@@ -529,6 +529,41 @@ img,video,iframe{max-width:100%}
  .vr-purchase-course-grid article>div{padding:11px}
 }
 @media(max-width:370px){.vr-purchase-course-grid{grid-template-columns:minmax(0,1fr)}}
+
+/* Galeria de certificados na administração */
+.vr-admin-certificate-page{display:flex;flex-direction:column;gap:18px}
+.vr-admin-cert-hero{display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:25px!important;background:linear-gradient(125deg,#221620,#120f17 70%)!important}
+.vr-admin-cert-hero-text{flex:1 1 340px}
+.vr-admin-cert-hero h2{font:30px Georgia,serif;color:#edc998;margin:9px 0}
+.vr-admin-cert-hero p{color:#c9b6bc;max-width:620px;line-height:1.6}
+.vr-admin-cert-tools{display:flex;gap:10px;flex-wrap:wrap}
+.vr-admin-cert-tools .btn{min-height:43px}
+.vr-admin-cert-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+.vr-admin-cert-summary>div{display:flex;flex-direction:column;gap:6px;padding:17px 20px;background:#211720;border:1px solid #61464e;border-radius:11px}
+.vr-admin-cert-summary strong{font:30px Georgia,serif;color:#edc58e}
+.vr-admin-cert-summary span{font-size:12px;color:#c6b1b6}
+.vr-admin-cert-gallery-head{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-top:8px;scroll-margin-top:100px}
+.vr-admin-cert-gallery-head h2{font:26px Georgia,serif;color:#f2d3aa;margin:6px 0 0}
+.vr-admin-cert-gallery-head>span{font-size:12px;color:#baa2ac}
+.vr-admin-cert-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,265px),1fr));gap:16px}
+.vr-admin-cert-card{overflow:hidden;display:flex;flex-direction:column;min-width:0;background:linear-gradient(140deg,#21161f,#120e14);border:1px solid #61474e;border-radius:12px;transition:transform .18s,border-color .18s}
+.vr-admin-cert-card:hover{transform:translateY(-2px);border-color:#ba946c}
+.vr-admin-cert-image{position:relative;width:100%;aspect-ratio:1.42;display:block;background:#0d0b0d;overflow:hidden;padding:0;border:0;border-bottom:1px solid #60454b;border-radius:0;cursor:pointer}
+.vr-admin-cert-image iframe{position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none;background:#0d0b0d}
+.vr-admin-cert-preview-label{position:absolute;right:10px;bottom:10px;background:#191219eb;border:1px solid #a78061;border-radius:7px;color:#f5dfc6;padding:7px 10px;font-size:11px}
+.vr-admin-cert-image:disabled .vr-admin-cert-preview-label{display:none}
+.vr-admin-cert-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#d5b17b;height:100%;font:28px Georgia,serif}
+.vr-admin-cert-placeholder small{font:11px system-ui,sans-serif;color:#bb9c9e}
+.vr-admin-cert-details{display:flex;flex:1;flex-direction:column;gap:15px;padding:15px}
+.vr-admin-cert-title{display:flex;justify-content:space-between;align-items:start;gap:9px;min-height:48px}
+.vr-admin-cert-title h3{font:20px/1.25 Georgia,serif;color:#edcba3;margin:0;overflow-wrap:anywhere}
+.vr-admin-cert-index{border:1px solid #6b5356;color:#bda9b1;padding:4px 6px;border-radius:6px;font-size:11px}
+.vr-admin-cert-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;font-size:12px;color:#c5b1b4}
+.vr-cert-ready{color:#a4cda9}.vr-cert-pending{color:#e6b786}
+.vr-admin-cert-buttons{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:auto}
+.vr-admin-cert-buttons .btn{font-size:11px;white-space:normal;min-height:39px;padding:9px 5px}
+.vr-admin-cert-note{font-size:12px;color:#bba6ae;border-top:1px solid #59444c;padding:15px 0}
+@media(max-width:700px){.vr-admin-cert-hero{padding:18px!important}.vr-admin-cert-hero h2{font-size:25px}.vr-admin-cert-tools{width:100%}.vr-admin-cert-tools .btn{flex:1}.vr-admin-cert-summary{gap:8px}.vr-admin-cert-summary>div{padding:12px 8px}.vr-admin-cert-summary strong{font-size:24px}.vr-admin-cert-summary span{font-size:10px}}
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:(location.hostname.endsWith('github.io')?'nails'+c[1]+'.jpg':'/api/course-cover/'+(i+1)),count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
@@ -1139,9 +1174,25 @@ async function premiumRemoveVideo(id,n){
  delete state.videoLessons?.[id+':'+n];save();modal=null;render()
 }
 function premiumCertificates(){
- return '<div class="premium-panel"><h3>Modelos oficiais de certificados</h3><p class="muted">Os oito modelos originais ficam disponíveis na galeria. Configure a carga horária e o arquivo de assinatura antes da emissão.</p><div class="premium-actions"><button onclick="configureCertificates()"><span>⚙</span><b>Configurar certificados</b></button><button onclick="go(\'certificates\')"><span>✦</span><b>Visualizar galeria</b></button></div></div>'+
- '<div class="premium-certificate-list">'+courses().map(function(c){return '<div class="premium-panel"><h3>'+esc(c.title)+'</h3><p class="muted">'+(certificateHours(c.id)?certificateHours(c.id)+' horas':'Carga horária não configurada')+'</p><button class="btn tiny outline" onclick="previewCertificate('+c.id+')">Ver modelo</button></div>'}).join('')+'</div>'
+ const cards=courses().map(c=>{
+  const file=certificateFile(c.id),hours=certificateHours(c.id),ready=Boolean(file&&hours);
+  const preview=file?'<iframe src="./'+encodeURIComponent(file)+'#toolbar=0&navpanes=0&view=Fit" title="Modelo de '+esc(c.title)+'" loading="lazy" tabindex="-1"></iframe>':'<div class="vr-admin-cert-placeholder">✦ VR ✦<small>Modelo não cadastrado</small></div>';
+  return '<article class="vr-admin-cert-card"><button class="vr-admin-cert-image" onclick="previewCertificate('+c.id+')" '+(file?'':'disabled')+' aria-label="Visualizar '+esc(c.title)+'">'+preview+'<span class="vr-admin-cert-preview-label">Visualizar ↗</span></button>'+
+  '<div class="vr-admin-cert-details"><div class="vr-admin-cert-title"><h3>'+esc(c.title)+'</h3><span class="vr-admin-cert-index">'+String(c.id).padStart(2,'0')+'</span></div>'+
+  '<div class="vr-admin-cert-meta"><span>'+ (hours?hours+' horas':'Carga horária pendente')+'</span><span class="'+(ready?'vr-cert-ready':'vr-cert-pending')+'">● '+(ready?'Configurado':'Pendente')+'</span></div>'+
+  '<div class="vr-admin-cert-buttons"><button class="btn outline" onclick="previewCertificate('+c.id+')" '+(file?'':'disabled')+'>Ver modelo</button><button class="btn outline" onclick="configureCertificates()">Configurar</button></div></div></article>'
+ }).join('');
+ const files=courses().filter(c=>certificateFile(c.id)).length,ready=courses().filter(c=>certificateFile(c.id)&&certificateHours(c.id)>0).length;
+ return '<div class="vr-admin-certificate-page">'+
+ '<section class="premium-panel vr-admin-cert-hero"><div class="vr-admin-cert-hero-text"><span class="eyebrow">DOCUMENTOS OFICIAIS</span><h2>Galeria de certificados</h2><p>Visualize os modelos oficiais e confira a carga horária de cada curso antes da emissão.</p></div>'+
+ '<div class="vr-admin-cert-tools"><button class="btn" onclick="configureCertificates()">⚙ Configurar certificados</button><button class="btn outline" onclick="showAdminCertGallery()">Ver todos os modelos ↓</button></div></section>'+
+ '<div class="vr-admin-cert-summary"><div><strong>'+files+'</strong><span>Modelos disponíveis</span></div><div><strong>'+ready+'</strong><span>Prontos para emissão</span></div><div><strong>'+courses().length+'</strong><span>Cursos cadastrados</span></div></div>'+
+ '<div class="vr-admin-cert-gallery-head" id="vr-admin-cert-gallery"><div><span class="eyebrow">VITÓRIA ROSSÉS ACADEMY</span><h2>Todos os certificados</h2></div><span>'+courses().length+' modelos</span></div>'+
+ '<div class="vr-admin-cert-grid">'+cards+'</div>'+
+ '<p class="vr-admin-cert-note">Os modelos originais são apresentados acima. O download personalizado para a aluna só é liberado após a conclusão do curso, conforme as regras de emissão.</p></div>'
 }
+function showAdminCertGallery(){document.getElementById('vr-admin-cert-gallery')?.scrollIntoView({behavior:'smooth',block:'start'})}
+
 function premiumNotifications(){
  const notes=state.announcements||[];
  return '<div class="premium-panel"><h3>Enviar notificação às alunas</h3><p class="muted">Cadastre avisos para aparecerem no sino de notificações dentro deste navegador de testes.</p><label>Título<input class="field" id="premium-note-title" maxlength="100" placeholder="Ex.: Nova aula disponível"></label><label>Mensagem<textarea class="field" id="premium-note-body" maxlength="800" placeholder="Digite sua mensagem..."></textarea></label><button class="btn" onclick="premiumAddNotification()">Publicar notificação</button></div>'+
