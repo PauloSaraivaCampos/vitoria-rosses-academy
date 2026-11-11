@@ -771,11 +771,12 @@ function certificateHours(id){return Number(state.certificateHours?.[id]||0)}
 function configureCertificates(){
  if(!isAdmin())return;
  const signature=state.certificateSignature||'';
+ certificateSignaturePending='';
  modal={title:'Configurar certificados',body:`<p class="muted">Defina as cargas horárias e importe a assinatura digital em PNG, preferencialmente com fundo transparente. Ela será aplicada nos PDFs emitidos às alunas.</p>
  <div class="vr-signature-section"><div class="vr-signature-heading"><strong>Assinatura da Vitória Rossés</strong><span>PNG • fundo transparente</span></div>
- <div class="vr-signature-preview"><img id="cert-signature-preview" src="${signature.startsWith('/api/')?signature+'?t='+Date.now():signature?'./'+encodeURI(signature):''}" alt="Prévia da assinatura" style="${signature?'':'display:none'}"><p id="cert-signature-placeholder" style="${signature?'display:none':''}">Nenhuma assinatura cadastrada</p></div>
+ <div class="vr-signature-preview"><img id="cert-signature-preview" src="${signature.startsWith('/api/')?signature+'?t='+Date.now():signature?'./'+encodeURI(signature):''}" alt="Prévia da assinatura" style="${signature?'':'display:none'}" onerror="this.style.display='none';document.getElementById('cert-signature-placeholder').style.display='block';document.getElementById('cert-signature-placeholder').textContent='Nenhuma assinatura PNG válida cadastrada'"><p id="cert-signature-placeholder" style="${signature?'display:none':''}">Nenhuma assinatura cadastrada</p></div>
  <label class="btn outline vr-signature-upload">Importar arquivo PNG<input type="file" id="cert-signature-file" accept=".png,image/png" hidden onchange="previewSignatureUpload(this)"></label>
- <small id="cert-signature-filename" class="muted">Selecione uma imagem PNG. O arquivo será ajustado para até 900 × 400 pixels.</small>
+ <small id="cert-signature-filename" class="muted">Selecione uma imagem PNG de até 5 MB. O site ajusta a resolução automaticamente, preservando a transparência.</small>
  </div>
  <h3 class="vr-cert-hours-title">Carga horária dos cursos</h3>
  ${courses().map(c=>`<label class="cert-config-label">${esc(c.title)}<input class="field" type="number" min="1" step="1" id="cert-hours-${c.id}" value="${certificateHours(c.id)||''}" placeholder="Carga horária em horas"></label>`).join('')}
@@ -789,20 +790,20 @@ async function previewSignatureUpload(input){
  if(file.type!=='image/png'||file.size>5*1024*1024){alert('Selecione um PNG de até 5 MB.');input.value='';return}
  try{
   const image=await createImageBitmap(file);
-  let scale=Math.min(1,900/image.width,400/image.height);
+  let scale=Math.min(1,1200/image.width,600/image.height);
   const canvas=document.createElement('canvas'),context=canvas.getContext('2d');
   let url='';
-  for(let pass=0;pass<7;pass++){
+  for(let pass=0;pass<5;pass++){
    canvas.width=Math.max(50,Math.round(image.width*scale));
    canvas.height=Math.max(20,Math.round(image.height*scale));
    context.clearRect(0,0,canvas.width,canvas.height);
    context.drawImage(image,0,0,canvas.width,canvas.height);
    url=canvas.toDataURL('image/png');
-   if(url.length<=200000)break;
-   scale*=0.78;
+   if(url.length<=5.5*1024*1024)break;
+   scale*=0.75;
   }
   image.close?.();
-  if(url.length>200000){alert('Não foi possível otimizar a imagem. Escolha uma assinatura PNG mais simples.');return}
+  if(url.length>5.5*1024*1024){alert('Arquivo PNG maior que 4 MB após ajuste. Escolha uma versão menor.');return}
   certificateSignaturePending=url;
   const preview=document.getElementById('cert-signature-preview');
   if(preview){preview.src=url;preview.style.display='block'}
