@@ -24,15 +24,46 @@ async function init(){
  await db.query('CREATE TABLE IF NOT EXISTS sessions(token_hash TEXT PRIMARY KEY,user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,expires_at TIMESTAMPTZ NOT NULL)');
  await db.query('CREATE TABLE IF NOT EXISTS academy_data(id INT PRIMARY KEY CHECK(id=1), data JSONB NOT NULL DEFAULT \'{}\')');
  await db.query('INSERT INTO academy_data(id,data) VALUES (1,$1) ON CONFLICT (id) DO NOTHING',[JSON.stringify(blank())]);
+ await db.query(`CREATE TABLE IF NOT EXISTS purchase_requests(
+ id BIGSERIAL PRIMARY KEY,
+ user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ item_type TEXT NOT NULL CHECK(item_type IN ('course','subscription')),
+ item_code TEXT NOT NULL,
+ status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+ created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ reviewed_at TIMESTAMPTZ,
+ reviewed_by BIGINT REFERENCES users(id)
+ )`);
+ await db.query(`CREATE TABLE IF NOT EXISTS course_entitlements(
+ user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+ course_id INT NOT NULL CHECK(course_id BETWEEN 0 AND 999),
+ expires_at TIMESTAMPTZ,
+ source_request_id BIGINT REFERENCES purchase_requests(id),
+ PRIMARY KEY(user_id,course_id)
+ )`);
+ await db.query('CREATE INDEX IF NOT EXISTS purchase_requests_user_idx ON purchase_requests(user_id,created_at DESC)');
  await db.query('CREATE INDEX IF NOT EXISTS sessions_expiration ON sessions(expires_at)');
 }
-async function identify(req){if(!db)return null;const cookies=Object.fromEntries((req.headers.cookie||'').split(';').map(x=>x.trim().split('=').map(decodeURIComponent)));const token=cookies.vra_sid;if(!token||! /^[a-f0-9]{64}$/.test(token))return null;const r=await db.query('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);return r.rows[0]||null}
+async function identify(req){if(!db)return null;const cookies=Object.fromEntries((req.headers.cookie||'').split(';').map(x=>x.trim().split('=').map(decodeURIComponent)));const token=cookies.vra_sid;if(!token||! /^[a-f0-9]{64}$/.test(token))return null;const r=await db.query('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token_hash=$1 AND s.expires_at>now()',[tokenHash(token)]);const user=r.rows[0]||null;if(!user)return null;const ent=await db.query('SELECT course_id,expires_at FROM course_entitlements WHERE user_id=$1 AND (expires_at IS NULL OR expires_at>now())',[user.id]);user.entitlements=ent.rows.map(x=>({course:Number(x.course_id),expiresAt:x.expires_at}));return user}
 async function makeSession(res,user){const token=crypto.randomBytes(32).toString('hex');await db.query("INSERT INTO sessions(token_hash,user_id,expires_at) VALUES($1,$2,now()+interval '14 days')",[tokenHash(token),user.id]);res.setHeader('Set-Cookie','vra_sid='+token+'; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=1209600')}
-function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.plans||[],grants:u.grants||{},progress:u.progress||{},notes:u.notes||{},certificateDates:u.certificate_dates||{},avatarUpdated:u.avatar_updated_at||null}}
+function publicUser(u){return {name:u.name,email:u.email,role:u.role,plans:u.plans||[],grants:u.grants||{},progress:u.progress||{},notes:u.notes||{},certificateDates:u.certificate_dates||{},avatarUpdated:u.avatar_updated_at||null,entitlements:u.entitlements||[]}}
 const asObj=v=>v&&typeof v==='object'&&!Array.isArray(v)?v:{};
 const asArr=v=>Array.isArray(v)?v:[];
 const safeStr=(v,max=1000)=>typeof v==='string'?v.slice(0,max):'';
-async function stateFor(user){const [data,users]=await Promise.all([db.query('SELECT data FROM academy_data WHERE id=1'),user.role==='admin'?db.query('SELECT * FROM users ORDER BY id'):Promise.resolve({rows:[user]})]);const source={...blank(),...asObj(data.rows[0].data)};if(user.role!=='admin'){delete source.monthlyPayments;delete source.orders;source.announcements=asArr(source.announcements);source.availableVideos=Object.keys(asObj(source.videoLessons)).filter(k=>{const id=Number(k.split(':')[0]);return asObj(user.grants)[id]!==false&&(asObj(user.grants)[id]===true||asArr(user.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(id)))});source.videoLessons={}}return {...source,users:users.rows.map(publicUser)}}
+const courseAllowed=(u,id)=>{
+ if(u.role==='admin')return true;
+ if(asObj(u.grants)[id]===false)return false;
+ if(asObj(u.grants)[id]===true)return true;
+ if(asArr(u.entitlements).some(e=>(e.course===0||e.course===Number(id))&&(!e.expiresAt||new Date(e.expiresAt).getTime()>Date.now())))return true;
+ return asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)))
+};
+async function stateFor(user){const [data,users]=await Promise.all([db.query('SELECT data FROM academy_data WHERE id=1'),user.role==='admin'?db.query('SELECT * FROM users ORDER BY id'):Promise.resolve({rows:[user]})]);const source={...blank(),...asObj(data.rows[0].data)};if(user.role!=='admin'){delete source.monthlyPayments;delete source.orders;source.announcements=asArr(source.announcements);source.availableVideos=Object.keys(asObj(source.videoLessons)).filter(k=>courseAllowed(user,Number(k.split(':')[0])));source.videoLessons={}}if(user.role==='admin'){
+ const ents=await db.query('SELECT user_id,course_id,expires_at FROM course_entitlements WHERE expires_at IS NULL OR expires_at>now()');
+ for(const u of users.rows)u.entitlements=ents.rows.filter(e=>String(e.user_id)===String(u.id)).map(e=>({course:Number(e.course_id),expiresAt:e.expires_at}));
+}
+const reqRows=await db.query(user.role==='admin'? "SELECT p.id,u.name,u.email,p.item_type,p.item_code,p.status,p.created_at,p.reviewed_at FROM purchase_requests p JOIN users u ON u.id=p.user_id ORDER BY p.created_at DESC LIMIT 250" : "SELECT p.id,p.item_type,p.item_code,p.status,p.created_at,p.reviewed_at FROM purchase_requests p WHERE p.user_id=$1 ORDER BY p.created_at DESC LIMIT 50",user.role==='admin'?[]:[user.id]);
+source.purchaseRequests=reqRows.rows.map(p=>({id:String(p.id),name:p.name,email:p.email,itemType:p.item_type,itemCode:p.item_code,status:p.status,createdAt:p.created_at,reviewedAt:p.reviewed_at}));
+return {...source,users:users.rows.map(publicUser)}}
 async function updateState(user,payload){
  const client=await db.connect();try{
   await client.query('BEGIN');
@@ -86,6 +117,46 @@ async function api(req,res,url){
  }
  const user=await identify(req);if(!user)return fail(res,'Sessão expirada ou acesso não autorizado',401);
  if(route==='/api/session'&&method==='GET')return ok(res,{user:publicUser(user)});
+ if(route==='/api/purchases/request'&&method==='POST'){
+  if(user.role!=='student')return fail(res,'Somente alunas podem solicitar acesso',403);
+  const x=await readBody(req),type=x.type,code=String(x.code||'');
+  if(!['course','subscription'].includes(type))return fail(res,'Tipo de contratação inválido');
+  if(type==='course'&&(!/^[1-9]\d{0,2}$/.test(code)||Number(code)>8))return fail(res,'Curso indisponível',400);
+  if(type==='subscription'&&!['monthly','quarterly','annual'].includes(code))return fail(res,'Plano indisponível',400);
+  if(type==='course'&&courseAllowed(user,Number(code)))return fail(res,'Curso já liberado para sua conta',409);
+  const existing=await db.query("SELECT id FROM purchase_requests WHERE user_id=$1 AND item_type=$2 AND item_code=$3 AND status='pending' LIMIT 1",[user.id,type,code]);
+  if(existing.rowCount)return ok(res,{ok:true,id:String(existing.rows[0].id),pending:true});
+  const created=await db.query("INSERT INTO purchase_requests(user_id,item_type,item_code) VALUES($1,$2,$3) RETURNING id",[user.id,type,code]);
+  return ok(res,{ok:true,id:String(created.rows[0].id),pending:true},201);
+ }
+ if(route==='/api/admin/purchases/decision'&&method==='POST'){
+  if(user.role!=='admin')return fail(res,'Apenas a administração pode confirmar pagamentos',403);
+  const x=await readBody(req);
+  if(!/^\d+$/.test(String(x.id||''))||!['approve','reject'].includes(x.decision))return fail(res,'Decisão inválida');
+  const client=await db.connect();
+  try{
+   await client.query('BEGIN');
+   const row=(await client.query('SELECT * FROM purchase_requests WHERE id=$1 FOR UPDATE',[x.id])).rows[0];
+   if(!row){await client.query('ROLLBACK');return fail(res,'Solicitação não encontrada',404)}
+   if(row.status!=='pending'){await client.query('ROLLBACK');return fail(res,'Solicitação já analisada',409)}
+   if(x.decision==='approve'){
+    const courseId=row.item_type==='course'?Number(row.item_code):0;
+    if(courseId===0){
+     const months={monthly:1,quarterly:3,annual:12}[row.item_code];
+     if(!months)throw Error('Período de assinatura inválido');
+     const prior=(await client.query('SELECT expires_at FROM course_entitlements WHERE user_id=$1 AND course_id=0 FOR UPDATE',[row.user_id])).rows[0];
+     const base=prior?.expires_at&&new Date(prior.expires_at)>new Date()?new Date(prior.expires_at):new Date();
+     const end=new Date(base);end.setUTCMonth(end.getUTCMonth()+months);
+     await client.query('INSERT INTO course_entitlements(user_id,course_id,expires_at,source_request_id) VALUES($1,0,$2,$3) ON CONFLICT(user_id,course_id) DO UPDATE SET expires_at=EXCLUDED.expires_at,source_request_id=EXCLUDED.source_request_id',[row.user_id,end,row.id]);
+    }else{
+     await client.query('INSERT INTO course_entitlements(user_id,course_id,expires_at,source_request_id) VALUES($1,$2,NULL,$3) ON CONFLICT(user_id,course_id) DO UPDATE SET expires_at=NULL,source_request_id=EXCLUDED.source_request_id',[row.user_id,courseId,row.id]);
+    }
+   }
+   await client.query("UPDATE purchase_requests SET status=$1,reviewed_at=now(),reviewed_by=$2 WHERE id=$3",[x.decision==='approve'?'approved':'rejected',user.id,row.id]);
+   await client.query('COMMIT');return ok(res,{ok:true,status:x.decision==='approve'?'approved':'rejected'});
+  }catch(e){await client.query('ROLLBACK');console.error('Falha ao analisar solicitação',e);return fail(res,'Não foi possível atualizar o acesso',500)}finally{client.release()}
+ }
+
  if(route==='/api/admin/covers/import'&&method==='POST'){
   if(user.role!=='admin')return fail(res,'Somente a administradora pode atualizar as capas',403);
   const MAX_ARCHIVE=5*1024*1024,chunks=[];let size=0;
@@ -137,7 +208,7 @@ async function api(req,res,url){
  }
 
 
- const isCourseAllowed=(u,id)=>{if(u.role==='admin')return true;const grant=asObj(u.grants)[id];if(grant===false)return false;return grant===true||asArr(u.plans).some(p=>({essencial:[1,3,7],profissional:[1,2,3,4,5,7,8],master:[1,2,3,4,5,6,7,8]})[p]?.includes(Number(id)))};
+ const isCourseAllowed=courseAllowed;
  const isLessonUnlocked=async(u,id,n)=>{if(!isCourseAllowed(u,id))return false;const result=await db.query('SELECT data FROM academy_data WHERE id=1');const locks=asObj(result.rows[0]?.data?.globalLocks);return locks[id+':'+n]!==true&&asObj(u.grants)[id+':'+n]!==false};
  if(route==='/api/lesson/complete'&&method==='POST'){
   if(user.role!=='student')return fail(res,'Somente alunas podem concluir aulas',403);
