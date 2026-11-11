@@ -481,6 +481,54 @@ img,video,iframe{max-width:100%}
 .premium-side-link.active .premium-menu-icon{color:#ffe0a9}
 .premium-side-link.active{box-shadow:inset 3px 0 0 #d2a76a}
 @media(max-width:700px){.premium-side-link{gap:9px;min-height:43px}.premium-side-link .premium-menu-icon{flex-basis:20px;width:20px;height:20px}.premium-side-link .premium-menu-icon svg{width:18px;height:18px}}
+
+/* Loja de cursos e assinaturas da Academy */
+.vr-no-courses{max-width:550px;padding:23px;border:1px solid #755047;border-radius:12px;background:linear-gradient(135deg,#2b1d2a,#171018)}
+.vr-no-courses h3{font-family:Georgia,serif;font-size:23px;color:#edd0a1;margin:0 0 8px}
+.vr-no-courses p{color:#d5bdc4;line-height:1.5}
+.vr-locked-buy{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-top:12px}
+.vr-locked-buy>span{color:#bda8a9;font-size:12px}
+.vr-buy-inline{font-size:12px;color:#f1c9ae;border:1px solid #91664c;border-radius:8px;background:#33222b;padding:9px 10px;cursor:pointer}
+.vr-buy-inline:hover{background:#56323b}
+.vr-purchase-page{max-width:1440px;margin:0 auto}
+.vr-purchase-heading{text-align:center;padding:19px 0 31px}
+.vr-purchase-heading h1{font-size:clamp(29px,5vw,46px);margin:10px 0;color:#f5e9e1}
+.vr-purchase-heading p{color:#c9b4bc}
+.vr-purchase-plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:17px}
+.vr-purchase-plan{display:flex;flex-direction:column;gap:13px;padding:23px;border:1px solid #795448;border-radius:14px;background:linear-gradient(155deg,#301b2e,#141017)}
+.vr-purchase-plan.featured{border-color:#c99a62;box-shadow:inset 0 0 0 1px #7b583d}
+.vr-purchase-plan h2{font-family:Georgia,serif;font-size:29px;margin:4px 0;color:#efd0a7}
+.vr-purchase-plan p{color:#d7c0c7;line-height:1.55;margin:0;min-height:54px}
+.vr-buy-price{color:#f4c992;font-family:Georgia,serif;font-size:23px;margin:12px 0}
+.vr-purchase-plan small{color:#aa9a9e}
+.vr-purchase-plan .btn{margin-top:auto}
+.vr-purchase-courses{margin:40px 0 26px}
+.vr-purchase-courses h2{font-size:29px;margin:12px 0 18px}
+.vr-purchase-course-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:15px}
+.vr-purchase-course-grid article{background:#1c141c;border:1px solid #574046;border-radius:12px;overflow:hidden}
+.vr-purchase-course-grid img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover}
+.vr-purchase-course-grid article>div{display:flex;flex-direction:column;gap:10px;padding:15px}
+.vr-purchase-course-grid strong{color:#e9c38c}
+.vr-purchase-course-grid span{font-size:12px;color:#b6a3a5}
+.vr-purchase-course-grid .btn{margin-top:8px}
+.vr-purchase-modal{display:flex;flex-direction:column;gap:13px;max-width:100%;padding-bottom:4px}
+.vr-purchase-modal h3{font:24px Georgia,serif;color:#efd2a9;margin:6px 0}
+.vr-purchase-modal p{color:#cfbdc0;line-height:1.5;margin:4px 0}
+.vr-purchase-choice{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:13px;border:1px solid #6b4a4e;border-radius:10px}
+.vr-purchase-choice>div{min-width:0;display:flex;flex-direction:column;gap:5px}
+.vr-purchase-choice strong{color:#f6dfc8}
+.vr-purchase-choice small{color:#b9a2a7}
+.vr-purchase-choice b{color:#ecc18c;font-size:14px}
+.vr-purchase-choice .btn{flex-shrink:0}
+@media(max-width:760px){
+ .vr-purchase-plans{grid-template-columns:minmax(0,1fr);gap:13px}
+ .vr-purchase-plan p{min-height:0}
+ .vr-purchase-choice{flex-wrap:wrap}
+ .vr-purchase-choice .btn{width:100%}
+ .vr-purchase-course-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:11px}
+ .vr-purchase-course-grid article>div{padding:11px}
+}
+@media(max-width:370px){.vr-purchase-course-grid{grid-template-columns:minmax(0,1fr)}}
 </style></head><body><div id="root"></div><script>
 const COURSES=[['Alongamento em Fibra de Vidro',1,12,'Do zero à aplicação profissional de fibra de vidro.'],['Blindagem de Unhas',2,10,'Resistência e acabamento para unhas naturais.'],['Esmaltação em Gel',3,8,'Preparação, aplicação e acabamento perfeito.'],['Alongamento em Gel',4,15,'Estruturação, curvatura e nivelamento.'],['Nail Art Premium',5,12,'Decorações, francesinhas e técnicas modernas.'],['Manutenção Profissional',6,9,'Manutenção segura e durabilidade.'],['Preparação e Biossegurança',7,7,'Cuidados, higiene e preparação da cliente.'],['Esmaltação Tradicional',8,8,'Técnicas clássicas e acabamento refinado.']].map((c,i)=>({id:i+1,title:c[0],img:(location.hostname.endsWith('github.io')?'nails'+c[1]+'.jpg':'/api/course-cover/'+(i+1)),count:c[2],desc:c[3]}));
 const LESSONS=['Boas-vindas e visão geral','Materiais e ferramentas necessárias','Biossegurança e higienização','Preparação da unha natural','Técnica completa — Parte 1','Técnica completa — Parte 2','Curvatura e nivelamento','Lixamento técnico','Acabamento e finalização','Erros comuns e como evitar','Manutenção e remoção','Avaliação final'];
