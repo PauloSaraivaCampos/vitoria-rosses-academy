@@ -789,11 +789,20 @@ async function previewSignatureUpload(input){
  if(file.type!=='image/png'||file.size>5*1024*1024){alert('Selecione um PNG de até 5 MB.');input.value='';return}
  try{
   const image=await createImageBitmap(file);
-  const scale=Math.min(1,900/image.width,400/image.height);
-  const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
-  canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);image.close?.();
-  let url=canvas.toDataURL('image/png');
-  if(url.length>220000){alert('Imagem muito detalhada. Use um PNG com menos detalhes ou tamanho menor.');return}
+  let scale=Math.min(1,900/image.width,400/image.height);
+  const canvas=document.createElement('canvas'),context=canvas.getContext('2d');
+  let url='';
+  for(let pass=0;pass<7;pass++){
+   canvas.width=Math.max(50,Math.round(image.width*scale));
+   canvas.height=Math.max(20,Math.round(image.height*scale));
+   context.clearRect(0,0,canvas.width,canvas.height);
+   context.drawImage(image,0,0,canvas.width,canvas.height);
+   url=canvas.toDataURL('image/png');
+   if(url.length<=200000)break;
+   scale*=0.78;
+  }
+  image.close?.();
+  if(url.length>200000){alert('Não foi possível otimizar a imagem. Escolha uma assinatura PNG mais simples.');return}
   certificateSignaturePending=url;
   const preview=document.getElementById('cert-signature-preview');
   if(preview){preview.src=url;preview.style.display='block'}
