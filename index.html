@@ -923,8 +923,61 @@ async function setGrant(email,id,v){if(REMOTE_MODE){try{await remoteAPI('admin/a
 async function setGlobal(id,i,v){if(REMOTE_MODE){try{await remoteAPI('admin/locks',{course:Number(id),lesson:Number(i),value:v});await remoteRefresh()}catch(e){alert(e.message)}return}state.globalLocks[id+':'+i]=v;save();render()}
 async function setIndividual(email,id,i,v){if(REMOTE_MODE){try{await remoteAPI('admin/access',{action:'lesson',email,course:Number(id),lesson:Number(i),value:!v});await remoteRefresh()}catch(e){alert(e.message)}return}state.users.find(u=>u.email===email).grants[id+':'+i]=v?false:true;save();render()}
 async function premiumSetPlan(email,plan){if(REMOTE_MODE){try{await remoteAPI('admin/access',{action:'plan',email,course:1,value:plan});await remoteRefresh()}catch(e){alert(e.message)}return}const u=state.users.find(u=>u.email===email);if(u){u.plans=plan==='none'?[]:[plan];save();render()}}
-function adminOrders(){return `<div class="panel"><table class="table"><thead><tr><th>Aluna</th><th>Pacote</th><th>Valor</th><th>Forma</th><th>Status</th></tr></thead><tbody>${state.orders.map(o=>`<tr><td>${esc(o.email)}</td><td>${esc(o.plan)}</td><td>R$ ${o.price},00</td><td>${esc(o.method)}</td><td><span class="pill">${esc(o.status)}</span></td></tr>`).join('')||'<tr><td colspan="5">Nenhuma compra simulada ainda.</td></tr>'}</tbody></table></div>`}
-function adminSettings(){return `<div class="panel"><h3>Configurações da academia</h3><label>Nome público<input class="field" id="brand" value="${esc(state.settings.brand||'Vitória Rosses Academy')}"></label><label>Mensagem de boas-vindas<textarea class="field" id="welcome">${esc(state.settings.welcome||'Elevando a sua autoestima')}</textarea></label><button class="btn" onclick="state.settings.brand=document.getElementById('brand').value;state.settings.welcome=document.getElementById('welcome').value;save();alert('Configurações salvas para testes')">Salvar</button><div class="notice">Integração real de pagamentos, e-mails, certificados e upload de vídeos requer servidor e credenciais de produção.</div><button class="btn outline" onclick="if(confirm('Apagar os dados de teste deste navegador?')){localStorage.removeItem(KEY);sessionStorage.removeItem('vra_session');location.reload()}">Restaurar dados de demonstração</button></div>`}
+
+function adminOrders(){
+ const requests=state.purchaseRequests||[];
+ return `<div class="premium-panel"><h3>Solicitações de compra</h3>
+ <p class="muted">Confirme que o pagamento foi recebido antes de aprovar. Solicitações pendentes não liberam cursos.</p>
+ <div class="premium-table-wrap"><table class="table"><thead><tr><th>Aluna</th><th>Curso / Plano</th><th>Solicitação</th><th>Status</th><th>Ação</th></tr></thead><tbody>
+ ${requests.map(o=>`<tr><td>${esc(o.name||'Aluna')}<small style="display:block">${esc(o.email||'')}</small></td><td>${esc(purchaseLabel(o.itemType,o.itemCode))}<small style="display:block">${esc(purchasePrice(o.itemType,o.itemCode))}</small></td><td>${new Date(o.createdAt).toLocaleDateString('pt-BR')}</td><td><span class="pill">${o.status==='pending'?'Pendente':o.status==='approved'?'Aprovado':'Recusado'}</span></td><td>${o.status==='pending'?`<button class="btn tiny" onclick="decidePurchase('${o.id}','approve')">Confirmar pagamento</button> <button class="btn tiny outline" onclick="decidePurchase('${o.id}','reject')">Recusar</button>`:'—'}</td></tr>`).join('')||'<tr><td colspan="5">Nenhuma solicitação recebida.</td></tr>'}
+ </tbody></table></div></div>`
+}
+async function decidePurchase(id,decision){
+ if(!isAdmin()||!REMOTE_MODE)return;
+ const message=decision==='approve'?'O pagamento foi realmente recebido? Confirmar liberará o acesso.':'Deseja recusar esta solicitação?';
+ if(!confirm(message))return;
+ try{await remoteAPI('admin/purchases/decision',{id,decision});await remoteRefresh();adminTab='orders';render()}
+ catch(e){alert('Falha ao analisar solicitação: '+e.message)}
+}
+function adminSettings(){
+ const prices=state.settings?.purchasePrices||{};
+ const priceInput=(id,label,value)=>`<label>${esc(label)}<input class="field" id="${id}" type="number" min="0" step="0.01" placeholder="Definir valor" value="${value??''}"></label>`;
+ return `<div class="premium-panel"><h3>Configurações da academia</h3>
+  <label>Nome público<input class="field" id="brand" value="${esc(state.settings?.brand||'Vitória Rossés Academy')}"></label>
+  <label>Mensagem de boas-vindas<textarea class="field" id="welcome">${esc(state.settings?.welcome||'Elevando a sua autoestima')}</textarea></label>
+ </div>
+ <div class="premium-panel"><h3>Valores de cursos e assinaturas</h3>
+ <p class="muted">Defina os preços antes de divulgar a oferta. Valores em branco aparecem como “Valor a confirmar”.</p>
+ <div class="premium-form-grid">
+ ${priceInput('price-monthly','Plano mensal (R$)',prices.monthly)}
+ ${priceInput('price-quarterly','Plano trimestral (R$)',prices.quarterly)}
+ ${priceInput('price-annual','Plano anual (R$)',prices.annual)}
+ ${courses().map(c=>priceInput('price-course-'+c.id,'Curso: '+c.title+' (R$)',prices.courses?.[c.id])).join('')}
+ </div>
+ <button class="btn" onclick="saveSalesSettings()">Salvar valores e informações</button>
+ <p class="small muted">Aprovação manual de pedidos: ainda não há integração automática com Pix ou cartão.</p>
+ </div>`
+}
+async function saveSalesSettings(){
+ const value=id=>document.getElementById(id)?.value.trim()||'';
+ const prices={courses:{}};
+ for(const key of ['monthly','quarterly','annual']){
+  const raw=value('price-'+key);
+  if(raw&&(!Number.isFinite(Number(raw))||Number(raw)<=0))return alert('Informe preços positivos ou deixe o campo em branco.');
+  if(raw)prices[key]=Number(raw)
+ }
+ for(const c of courses()){
+  const raw=value('price-course-'+c.id);
+  if(raw&&(!Number.isFinite(Number(raw))||Number(raw)<=0))return alert('Valor inválido para '+c.title);
+  if(raw)prices.courses[c.id]=Number(raw)
+ }
+ state.settings??={};
+ state.settings.brand=value('brand');
+ state.settings.welcome=value('welcome');
+ state.settings.purchasePrices=prices;
+ try{await save();await remoteRefresh();adminTab='settings';render();alert('Preços atualizados para as alunas.')}
+ catch(e){alert('Não foi possível salvar: '+e.message)}
+}
 
 function premiumAdminIcon(name){
  const paths={
